@@ -1,0 +1,15 @@
+*.o
+*.pyc
+build
+config.log
+config.status
+libpython2.6.a
+pyconfig.h
+python
+Modules/config.c
+Modules/Setup
+Modules/Setup.config
+Modules/Setup.local
+Makefile
+Makefile.pre
+Parser/pgen
