@@ -424,7 +424,7 @@ format_string_internal(PyObject *value, const InternalFormatSpec *format)
     }
 
     /* allocate the resulting string */
-    result = STRINGLIB_NEW(NULL, width);
+    result = STRINGLIB_NEW(NULL, width, PyString_TAINT(value));
     if (result == NULL)
         goto done;
 
@@ -610,7 +610,7 @@ format_int_or_long_internal(PyObject *value, const InternalFormatSpec *format,
 		       format);
 
     /* Allocate a new string to hold the result */
-    result = STRINGLIB_NEW(NULL, spec.n_total);
+    result = STRINGLIB_NEW(NULL, spec.n_total, 0);
     if (!result)
 	goto done;
     p = STRINGLIB_STR(result);
@@ -804,7 +804,7 @@ format_float_internal(PyObject *value,
     calc_number_widths(&spec, sign, 0, n_digits, format);
 
     /* allocate a string with enough space */
-    result = STRINGLIB_NEW(NULL, spec.n_total);
+    result = STRINGLIB_NEW(NULL, spec.n_total, 0);
     if (result == NULL)
         goto done;
 

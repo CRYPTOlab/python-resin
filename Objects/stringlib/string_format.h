@@ -61,7 +61,7 @@ SubString_new_object(SubString *str)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    return STRINGLIB_NEW(str->ptr, str->end - str->ptr);
+    return STRINGLIB_NEW(str->ptr, str->end - str->ptr, 0);
 }
 
 /* return a new string.  if str->ptr is NULL, return None */
@@ -69,9 +69,9 @@ Py_LOCAL_INLINE(PyObject *)
 SubString_new_object_or_empty(SubString *str)
 {
     if (str->ptr == NULL) {
-        return STRINGLIB_NEW(NULL, 0);
+        return STRINGLIB_NEW(NULL, 0, 0);
     }
-    return STRINGLIB_NEW(str->ptr, str->end - str->ptr);
+    return STRINGLIB_NEW(str->ptr, str->end - str->ptr, 0);
 }
 
 /************************************************************************/
@@ -89,7 +89,7 @@ typedef struct {
 static int
 output_initialize(OutputString *output, Py_ssize_t size)
 {
-    output->obj = STRINGLIB_NEW(NULL, size);
+    output->obj = STRINGLIB_NEW(NULL, size, 0);
     if (output->obj == NULL)
         return 0;
 
@@ -520,7 +520,7 @@ render_field(PyObject *fieldobj, SubString *format_spec, OutputString *output)
 	/* We need to create an object out of the pointers we have, because
 	   __format__ takes a string/unicode object for format_spec. */
 	format_spec_object = STRINGLIB_NEW(format_spec_start,
-					   format_spec_len);
+					   format_spec_len, 0);
 	if (format_spec_object == NULL)
 	    goto done;
 
@@ -1040,7 +1040,7 @@ formatteriter_next(formatteriterobject *it)
             Py_INCREF(conversion_str);
         }
         else
-	    conversion_str = STRINGLIB_NEW(&conversion, 1);
+	    conversion_str = STRINGLIB_NEW(&conversion, 1, 0);
         if (conversion_str == NULL)
             goto done;
 

@@ -48,8 +48,15 @@ static PyObject *interned;
    PyString_FromStringAndSize()) or the length of the string in the `str'
    parameter (for PyString_FromString()).
 */
+
 PyObject *
 PyString_FromStringAndSize(const char *str, Py_ssize_t size)
+{
+	return PyString_FromStringAndSizeT(str, size, 0);
+}
+
+PyObject *
+PyString_FromStringAndSizeT(const char *str, Py_ssize_t size, PyObject *taint)
 {
 	register PyStringObject *op;
 	if (size < 0) {
@@ -57,14 +64,14 @@ PyString_FromStringAndSize(const char *str, Py_ssize_t size)
 		    "Negative size passed to PyString_FromStringAndSize");
 		return NULL;
 	}
-	if (size == 0 && (op = nullstring) != NULL) {
+	if (size == 0 && !taint && (op = nullstring) != NULL) {
 #ifdef COUNT_ALLOCS
 		null_strings++;
 #endif
 		Py_INCREF(op);
 		return (PyObject *)op;
 	}
-	if (size == 1 && str != NULL &&
+	if (size == 1 && str != NULL && !taint &&
 	    (op = characters[*str & UCHAR_MAX]) != NULL)
 	{
 #ifdef COUNT_ALLOCS
@@ -84,19 +91,21 @@ PyString_FromStringAndSize(const char *str, Py_ssize_t size)
 	if (op == NULL)
 		return PyErr_NoMemory();
 	PyObject_INIT_VAR(op, &PyString_Type, size);
+	Py_XINCREF(taint);
+	op->ob_taint = taint;
 	op->ob_shash = -1;
 	op->ob_sstate = SSTATE_NOT_INTERNED;
 	if (str != NULL)
 		Py_MEMCPY(op->ob_sval, str, size);
 	op->ob_sval[size] = '\0';
 	/* share short strings */
-	if (size == 0) {
+	if (size == 0 && !taint) {
 		PyObject *t = (PyObject *)op;
 		PyString_InternInPlace(&t);
 		op = (PyStringObject *)t;
 		nullstring = op;
 		Py_INCREF(op);
-	} else if (size == 1 && str != NULL) {
+	} else if (size == 1 && !taint && str != NULL) {
 		PyObject *t = (PyObject *)op;
 		PyString_InternInPlace(&t);
 		op = (PyStringObject *)t;
@@ -109,6 +118,7 @@ PyString_FromStringAndSize(const char *str, Py_ssize_t size)
 PyObject *
 PyString_FromString(const char *str)
 {
+	PyObject *taint = 0;
 	register size_t size;
 	register PyStringObject *op;
 
@@ -119,14 +129,14 @@ PyString_FromString(const char *str)
 			"string is too long for a Python string");
 		return NULL;
 	}
-	if (size == 0 && (op = nullstring) != NULL) {
+	if (size == 0 && !taint && (op = nullstring) != NULL) {
 #ifdef COUNT_ALLOCS
 		null_strings++;
 #endif
 		Py_INCREF(op);
 		return (PyObject *)op;
 	}
-	if (size == 1 && (op = characters[*str & UCHAR_MAX]) != NULL) {
+	if (size == 1 && !taint && (op = characters[*str & UCHAR_MAX]) != NULL) {
 #ifdef COUNT_ALLOCS
 		one_strings++;
 #endif
@@ -139,17 +149,19 @@ PyString_FromString(const char *str)
 	if (op == NULL)
 		return PyErr_NoMemory();
 	PyObject_INIT_VAR(op, &PyString_Type, size);
+	Py_XINCREF(taint);
+	op->ob_taint = taint;
 	op->ob_shash = -1;
 	op->ob_sstate = SSTATE_NOT_INTERNED;
 	Py_MEMCPY(op->ob_sval, str, size+1);
 	/* share short strings */
-	if (size == 0) {
+	if (size == 0 && !taint) {
 		PyObject *t = (PyObject *)op;
 		PyString_InternInPlace(&t);
 		op = (PyStringObject *)t;
 		nullstring = op;
 		Py_INCREF(op);
-	} else if (size == 1) {
+	} else if (size == 1 && !taint) {
 		PyObject *t = (PyObject *)op;
 		PyString_InternInPlace(&t);
 		op = (PyStringObject *)t;
@@ -523,6 +535,9 @@ PyObject *PyString_AsEncodedString(PyObject *str,
 static void
 string_dealloc(PyObject *op)
 {
+	Py_XDECREF(((PyStringObject *) op)->ob_taint);
+	((PyStringObject *) op)->ob_taint = 0;
+
 	switch (PyString_CHECK_INTERNED(op)) {
 		case SSTATE_NOT_INTERNED:
 			break;
@@ -875,7 +890,7 @@ PyString_Repr(PyObject *obj, int smartquotes)
 			"string is too large to make repr");
                 return NULL;
 	}
-	v = PyString_FromStringAndSize((char *)NULL, newsize);
+	v = PyString_FromStringAndSizeT((char *)NULL, newsize, PyString_TAINT(obj));
 	if (v == NULL) {
 		return NULL;
 	}
@@ -943,7 +958,7 @@ string_str(PyObject *s)
 	else {
 		/* Subtype -- return genuine string with the same value. */
 		PyStringObject *t = (PyStringObject *) s;
-		return PyString_FromStringAndSize(t->ob_sval, Py_SIZE(t));
+		return PyString_FromStringAndSizeT(t->ob_sval, Py_SIZE(t), PyString_TAINT(s));
 	}
 }
 
@@ -992,6 +1007,18 @@ string_concat(register PyStringObject *a, register PyObject *bb)
 				"strings are too large to concat");
 		return NULL;
 	}
+
+	PyObject *taint = 0;
+
+	if (!PyString_TAINT(a) || PyString_TAINT(a) == Py_None || PyString_TAINT(a) == PyString_TAINT(b))
+	    taint = PyString_TAINT(b);
+	else if (!PyString_TAINT(b) || PyString_TAINT(b) == Py_None)
+	    taint = PyString_TAINT(a);
+	else {
+	    taint = PyObject_CallMethodObjArgs(PyString_TAINT(a), PyString_FromString("merge"), PyString_TAINT(b), 0);
+	    if (!taint)
+		return 0;
+	}
 	  
 	/* Inline PyObject_NewVar */
 	if (size > PY_SSIZE_T_MAX - sizeof(PyStringObject)) {
@@ -1003,6 +1030,8 @@ string_concat(register PyStringObject *a, register PyObject *bb)
 	if (op == NULL)
 		return PyErr_NoMemory();
 	PyObject_INIT_VAR(op, &PyString_Type, size);
+	Py_XINCREF(taint);
+	op->ob_taint = taint;
 	op->ob_shash = -1;
 	op->ob_sstate = SSTATE_NOT_INTERNED;
 	Py_MEMCPY(op->ob_sval, a->ob_sval, Py_SIZE(a));
@@ -1046,6 +1075,8 @@ string_repeat(register PyStringObject *a, register Py_ssize_t n)
 	if (op == NULL)
 		return PyErr_NoMemory();
 	PyObject_INIT_VAR(op, &PyString_Type, size);
+	op->ob_taint = a->ob_taint;
+	Py_XINCREF(op->ob_taint);
 	op->ob_shash = -1;
 	op->ob_sstate = SSTATE_NOT_INTERNED;
 	op->ob_sval[size] = '\0';
@@ -1086,7 +1117,7 @@ string_slice(register PyStringObject *a, register Py_ssize_t i,
 	}
 	if (j < i)
 		j = i;
-	return PyString_FromStringAndSize(a->ob_sval + i, j-i);
+	return PyString_FromStringAndSizeT(a->ob_sval + i, j-i, PyString_TAINT(a));
 }
 
 static int
@@ -1120,7 +1151,7 @@ string_item(PyStringObject *a, register Py_ssize_t i)
 	pchar = a->ob_sval[i];
 	v = (PyObject *)characters[pchar & UCHAR_MAX];
 	if (v == NULL)
-		v = PyString_FromStringAndSize(&pchar, 1);
+		v = PyString_FromStringAndSizeT(&pchar, 1, PyString_TAINT(a));
 	else {
 #ifdef COUNT_ALLOCS
 		one_strings++;
@@ -1247,7 +1278,7 @@ string_subscript(PyStringObject* self, PyObject* item)
 		}
 
 		if (slicelength <= 0) {
-			return PyString_FromStringAndSize("", 0);
+			return PyString_FromStringAndSizeT("", 0, PyString_TAINT(self));
 		}
 		else if (start == 0 && step == 1 &&
 			 slicelength == PyString_GET_SIZE(self) &&
@@ -1256,9 +1287,9 @@ string_subscript(PyStringObject* self, PyObject* item)
 			return (PyObject *)self;
 		}
 		else if (step == 1) {
-			return PyString_FromStringAndSize(
+			return PyString_FromStringAndSizeT(
 				PyString_AS_STRING(self) + start,
-				slicelength);
+				slicelength, PyString_TAINT(self));
 		}
 		else {
 			source_buf = PyString_AsString((PyObject*)self);
@@ -1271,8 +1302,8 @@ string_subscript(PyStringObject* self, PyObject* item)
 				result_buf[i] = source_buf[cur];
 			}
 
-			result = PyString_FromStringAndSize(result_buf,
-							    slicelength);
+			result = PyString_FromStringAndSizeT(result_buf,
+							    slicelength, PyString_TAINT(self));
 			PyMem_Free(result_buf);
 			return result;
 		}
@@ -1392,8 +1423,8 @@ static const char *stripformat[] = {"|O:lstrip", "|O:rstrip", "|O:strip"};
 	(maxsplit >= MAX_PREALLOC ? MAX_PREALLOC : maxsplit+1)
 
 #define SPLIT_APPEND(data, left, right)				\
-	str = PyString_FromStringAndSize((data) + (left),	\
-					 (right) - (left));	\
+	str = PyString_FromStringAndSizeT((data) + (left),	\
+					 (right) - (left), PyString_TAINT(self));	\
 	if (str == NULL)					\
 		goto onError;					\
 	if (PyList_Append(list, str)) {				\
@@ -1404,8 +1435,8 @@ static const char *stripformat[] = {"|O:lstrip", "|O:rstrip", "|O:strip"};
 		Py_DECREF(str);
 
 #define SPLIT_ADD(data, left, right) {				\
-	str = PyString_FromStringAndSize((data) + (left),	\
-					 (right) - (left));	\
+	str = PyString_FromStringAndSizeT((data) + (left),	\
+					 (right) - (left), PyString_TAINT(self));	\
 	if (str == NULL)					\
 		goto onError;					\
 	if (count < MAX_PREALLOC) {				\
@@ -1848,6 +1879,8 @@ string_join(PyStringObject *self, PyObject *orig)
 	 * need (sz), see whether any argument is absurd, and defer to
 	 * the Unicode join if appropriate.
 	 */
+	PyObject *taint = 0;
+
 	for (i = 0; i < seqlen; i++) {
 		const size_t old_sz = sz;
 		item = PySequence_Fast_GET_ITEM(seq, i);
@@ -1862,6 +1895,7 @@ string_join(PyStringObject *self, PyObject *orig)
 				PyObject *result;
 				result = PyUnicode_Join((PyObject *)self, seq);
 				Py_DECREF(seq);
+				Py_XDECREF(taint);
 				return result;
 			}
 #endif
@@ -1870,6 +1904,7 @@ string_join(PyStringObject *self, PyObject *orig)
 				     " %.80s found",
 				     i, Py_TYPE(item)->tp_name);
 			Py_DECREF(seq);
+			Py_XDECREF(taint);
 			return NULL;
 		}
 		sz += PyString_GET_SIZE(item);
@@ -1879,16 +1914,42 @@ string_join(PyStringObject *self, PyObject *orig)
 			PyErr_SetString(PyExc_OverflowError,
 				"join() result is too long for a Python string");
 			Py_DECREF(seq);
+			Py_XDECREF(taint);
 			return NULL;
+		}
+
+		PyObject *nt = PyString_TAINT(item);
+		if (nt && nt != Py_None) {
+			PyObject *new_taint;
+			if (taint && taint != Py_None && taint != nt) {
+			    new_taint = 
+				PyObject_CallMethodObjArgs(nt,
+						PyString_FromString("merge"),
+						taint, 0);
+			} else {
+			    new_taint = nt;
+			    Py_INCREF(new_taint);
+			}
+
+			if (!new_taint) {
+			    printf("---could not call merge!---\n");
+			    Py_DECREF(seq);
+			    Py_XDECREF(taint);
+			    return NULL;
+			}
+
+			Py_XDECREF(taint);
+			taint = new_taint;
 		}
 	}
 
 	/* Allocate result space. */
-	res = PyString_FromStringAndSize((char*)NULL, sz);
+	res = PyString_FromStringAndSizeT((char*)NULL, sz, taint);
 	if (res == NULL) {
 		Py_DECREF(seq);
 		return NULL;
 	}
+	Py_XDECREF(taint);
 
 	/* Catenate everything. */
 	p = PyString_AS_STRING(res);
@@ -2085,7 +2146,7 @@ do_xstrip(PyStringObject *self, int striptype, PyObject *sepobj)
 		return (PyObject*)self;
 	}
 	else
-		return PyString_FromStringAndSize(s+i, j-i);
+		return PyString_FromStringAndSizeT(s+i, j-i, PyString_TAINT(self));
 }
 
 
@@ -2115,7 +2176,7 @@ do_strip(PyStringObject *self, int striptype)
 		return (PyObject*)self;
 	}
 	else
-		return PyString_FromStringAndSize(s+i, j-i);
+		return PyString_FromStringAndSizeT(s+i, j-i, PyString_TAINT(self));
 }
 
 
@@ -2225,7 +2286,7 @@ string_lower(PyStringObject *self)
 	Py_ssize_t i, n = PyString_GET_SIZE(self);
 	PyObject *newobj;
 
-	newobj = PyString_FromStringAndSize(NULL, n);
+	newobj = PyString_FromStringAndSizeT(NULL, n, PyString_TAINT(self));
 	if (!newobj)
 		return NULL;
 
@@ -2258,7 +2319,7 @@ string_upper(PyStringObject *self)
 	Py_ssize_t i, n = PyString_GET_SIZE(self);
 	PyObject *newobj;
 
-	newobj = PyString_FromStringAndSize(NULL, n);
+	newobj = PyString_FromStringAndSizeT(NULL, n, PyString_TAINT(self));
 	if (!newobj)
 		return NULL;
 
@@ -2289,7 +2350,7 @@ string_title(PyStringObject *self)
 	int previous_is_cased = 0;
 	PyObject *newobj;
 
-	newobj = PyString_FromStringAndSize(NULL, n);
+	newobj = PyString_FromStringAndSizeT(NULL, n, PyString_TAINT(self));
 	if (newobj == NULL)
 		return NULL;
 	s_new = PyString_AsString(newobj);
@@ -2323,7 +2384,7 @@ string_capitalize(PyStringObject *self)
 	Py_ssize_t i, n = PyString_GET_SIZE(self);
 	PyObject *newobj;
 
-	newobj = PyString_FromStringAndSize(NULL, n);
+	newobj = PyString_FromStringAndSizeT(NULL, n, PyString_TAINT(self));
 	if (newobj == NULL)
 		return NULL;
 	s_new = PyString_AsString(newobj);
@@ -2403,7 +2464,7 @@ string_swapcase(PyStringObject *self)
 	Py_ssize_t i, n = PyString_GET_SIZE(self);
 	PyObject *newobj;
 
-	newobj = PyString_FromStringAndSize(NULL, n);
+	newobj = PyString_FromStringAndSizeT(NULL, n, PyString_TAINT(self));
 	if (newobj == NULL)
 		return NULL;
 	s_new = PyString_AsString(newobj);
@@ -2499,7 +2560,7 @@ string_translate(PyStringObject *self, PyObject *args)
 	}
 
 	inlen = PyString_GET_SIZE(input_obj);
-	result = PyString_FromStringAndSize((char *)NULL, inlen);
+	result = PyString_FromStringAndSizeT((char *)NULL, inlen, PyString_TAINT(self));
 	if (result == NULL)
 		return NULL;
 	output_start = output = PyString_AsString(result);
@@ -2566,9 +2627,9 @@ return_self(PyStringObject *self)
 		Py_INCREF(self);
 		return self;
 	}
-	return (PyStringObject *)PyString_FromStringAndSize(
+	return (PyStringObject *)PyString_FromStringAndSizeT(
 		PyString_AS_STRING(self),
-		PyString_GET_SIZE(self));
+		PyString_GET_SIZE(self), PyString_TAINT(self));
 }
 
 Py_LOCAL_INLINE(Py_ssize_t)
@@ -2711,7 +2772,7 @@ replace_interleave(PyStringObject *self,
 	}
   
 	if (! (result = (PyStringObject *)
-	                 PyString_FromStringAndSize(NULL, result_len)) )
+	                 PyString_FromStringAndSizeT(NULL, result_len, PyString_TAINT(self))) )
 		return NULL;
 
 	self_s = PyString_AS_STRING(self);
@@ -2760,7 +2821,7 @@ replace_delete_single_character(PyStringObject *self,
 	assert(result_len>=0);
 
 	if ( (result = (PyStringObject *)
-	                PyString_FromStringAndSize(NULL, result_len)) == NULL)
+	                PyString_FromStringAndSizeT(NULL, result_len, PyString_TAINT(self))) == NULL)
 		return NULL;
 	result_s = PyString_AS_STRING(result);
 
@@ -2808,7 +2869,7 @@ replace_delete_substring(PyStringObject *self,
 	assert (result_len>=0);
 
 	if ( (result = (PyStringObject *)
-	      PyString_FromStringAndSize(NULL, result_len)) == NULL )
+	      PyString_FromStringAndSizeT(NULL, result_len, PyString_TAINT(self))) == NULL )
 		return NULL;
 
 	result_s = PyString_AS_STRING(result);
@@ -2854,7 +2915,7 @@ replace_single_character_in_place(PyStringObject *self,
 	}
 
 	/* Need to make a new string */
-	result = (PyStringObject *) PyString_FromStringAndSize(NULL, self_len);
+	result = (PyStringObject *) PyString_FromStringAndSizeT(NULL, self_len, PyString_TAINT(self));
 	if (result == NULL)
 		return NULL;
 	result_s = PyString_AS_STRING(result);
@@ -2903,7 +2964,7 @@ replace_substring_in_place(PyStringObject *self,
 	}
 
 	/* Need to make a new string */
-	result = (PyStringObject *) PyString_FromStringAndSize(NULL, self_len);
+	result = (PyStringObject *) PyString_FromStringAndSizeT(NULL, self_len, PyString_TAINT(self));
 	if (result == NULL)
 		return NULL;
 	result_s = PyString_AS_STRING(result);
@@ -2964,7 +3025,7 @@ replace_single_character(PyStringObject *self,
 	}
 
 	if ( (result = (PyStringObject *)
-	      PyString_FromStringAndSize(NULL, result_len)) == NULL)
+	      PyString_FromStringAndSizeT(NULL, result_len, PyString_TAINT(self))) == NULL)
 		return NULL;
 	result_s = PyString_AS_STRING(result);
 
@@ -3032,7 +3093,7 @@ replace_substring(PyStringObject *self,
 	}
 
 	if ( (result = (PyStringObject *)
-	      PyString_FromStringAndSize(NULL, result_len)) == NULL)
+	      PyString_FromStringAndSizeT(NULL, result_len, PyString_TAINT(self))) == NULL)
 		return NULL;
 	result_s = PyString_AS_STRING(result);
 
@@ -3434,7 +3495,7 @@ string_expandtabs(PyStringObject *self, PyObject *args)
 	goto overflow1;
 
     /* Second pass: create output string and fill it */
-    u = PyString_FromStringAndSize(NULL, i + j);
+    u = PyString_FromStringAndSizeT(NULL, i + j, PyString_TAINT(self));
     if (!u)
         return NULL;
 
@@ -3487,8 +3548,8 @@ pad(PyStringObject *self, Py_ssize_t left, Py_ssize_t right, char fill)
         return (PyObject *)self;
     }
 
-    u = PyString_FromStringAndSize(NULL,
-				   left + PyString_GET_SIZE(self) + right);
+    u = PyString_FromStringAndSizeT(NULL,
+				   left + PyString_GET_SIZE(self) + right, PyString_TAINT(self));
     if (u) {
         if (left)
             memset(PyString_AS_STRING(u), fill, left);
@@ -3601,10 +3662,10 @@ string_zfill(PyStringObject *self, PyObject *args)
             return (PyObject*) self;
         }
         else
-            return PyString_FromStringAndSize(
+            return PyString_FromStringAndSizeT(
                 PyString_AS_STRING(self),
                 PyString_GET_SIZE(self)
-            );
+            , PyString_TAINT(self));
     }
 
     fill = width - PyString_GET_SIZE(self);
@@ -3997,6 +4058,47 @@ PyDoc_STRVAR(p_format__doc__,
 \n\
 ");
 
+static PyObject *
+PyString_GetAttr(PyObject *obj, PyObject *name)
+{
+    PyStringObject *sobj = (PyStringObject *) obj;
+
+    if (PyString_Check(name) && !strcmp(PyString_AS_STRING(name), "__taint__")) {
+	PyObject *t = sobj->ob_taint;
+	if (!t)
+	    t = Py_None;
+
+	Py_INCREF(t);
+	return t;
+    }
+
+    return PyObject_GenericGetAttr(obj, name);
+}
+
+static int
+PyString_SetAttr(PyObject *obj, PyObject *name, PyObject *value)
+{
+#if 0
+    PyStringObject *sobj = (PyStringObject *) obj;
+
+    if (PyString_Check(name) && !strcmp(PyString_AS_STRING(name), "__taint__")) {
+	Py_XDECREF(sobj->ob_taint);
+	Py_INCREF(value);
+	sobj->ob_taint = value;
+	return 0;
+    }
+#endif
+
+    return PyObject_GenericSetAttr(obj, name, value);
+}
+
+static PyObject *
+string_taint(PyStringObject *self, PyObject *taint)
+{
+	return PyString_FromStringAndSizeT(PyString_AS_STRING(self),
+					  Py_SIZE(self), taint);
+}
+
 
 static PyMethodDef
 string_methods[] = {
@@ -4054,6 +4156,7 @@ string_methods[] = {
 	{"__sizeof__", (PyCFunction)string_sizeof, METH_NOARGS,
 	 sizeof__doc__},
 	{"__getnewargs__",	(PyCFunction)string_getnewargs,	METH_NOARGS},
+	{"taint", (PyCFunction)string_taint, METH_O},
 	{NULL,     NULL}		     /* sentinel */
 };
 
@@ -4193,8 +4296,8 @@ PyTypeObject PyString_Type = {
 	(hashfunc)string_hash, 			/* tp_hash */
 	0,					/* tp_call */
 	string_str,				/* tp_str */
-	PyObject_GenericGetAttr,		/* tp_getattro */
-	0,					/* tp_setattro */
+	PyString_GetAttr,			/* tp_getattro */
+	PyString_SetAttr,			/* tp_setattro */
 	&string_as_buffer,			/* tp_as_buffer */
 	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES |
 		Py_TPFLAGS_BASETYPE | Py_TPFLAGS_STRING_SUBCLASS |
@@ -5121,6 +5224,8 @@ PyString_InternInPlace(PyObject **p)
 		return;
 	if (PyString_CHECK_INTERNED(s))
 		return;
+	if (s->ob_taint)
+		return;
 	if (interned == NULL) {
 		interned = PyDict_New();
 		if (interned == NULL) {
@@ -5150,6 +5255,7 @@ void
 PyString_InternImmortal(PyObject **p)
 {
 	PyString_InternInPlace(p);
+	assert(!((PyStringObject*) (*p))->ob_taint);
 	if (PyString_CHECK_INTERNED(*p) != SSTATE_INTERNED_IMMORTAL) {
 		PyString_CHECK_INTERNED(*p) = SSTATE_INTERNED_IMMORTAL;
 		Py_INCREF(*p);

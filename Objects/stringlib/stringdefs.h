@@ -18,7 +18,7 @@
 #define STRINGLIB_FILL           memset
 #define STRINGLIB_STR            PyString_AS_STRING
 #define STRINGLIB_LEN            PyString_GET_SIZE
-#define STRINGLIB_NEW            PyString_FromStringAndSize
+#define STRINGLIB_NEW            PyString_FromStringAndSizeT
 #define STRINGLIB_RESIZE         _PyString_Resize
 #define STRINGLIB_CHECK          PyString_Check
 #define STRINGLIB_CMP            memcmp

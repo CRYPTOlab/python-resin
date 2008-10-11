@@ -18,7 +18,7 @@
 #define STRINGLIB_FILL           Py_UNICODE_FILL
 #define STRINGLIB_STR            PyUnicode_AS_UNICODE
 #define STRINGLIB_LEN            PyUnicode_GET_SIZE
-#define STRINGLIB_NEW            PyUnicode_FromUnicode
+#define STRINGLIB_NEW(a,b,c)     PyUnicode_FromUnicode(a,b)
 #define STRINGLIB_RESIZE         PyUnicode_Resize
 #define STRINGLIB_CHECK          PyUnicode_Check
 #define STRINGLIB_GROUPING       _PyUnicode_InsertThousandsGrouping

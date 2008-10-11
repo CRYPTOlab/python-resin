@@ -34,6 +34,7 @@ functions should be applied to nil objects.
 
 typedef struct {
     PyObject_VAR_HEAD
+    PyObject *ob_taint;
     long ob_shash;
     int ob_sstate;
     char ob_sval[1];
@@ -59,6 +60,7 @@ PyAPI_DATA(PyTypeObject) PyString_Type;
                  PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_STRING_SUBCLASS)
 #define PyString_CheckExact(op) (Py_TYPE(op) == &PyString_Type)
 
+PyAPI_FUNC(PyObject *) PyString_FromStringAndSizeT(const char *, Py_ssize_t, PyObject *taint);
 PyAPI_FUNC(PyObject *) PyString_FromStringAndSize(const char *, Py_ssize_t);
 PyAPI_FUNC(PyObject *) PyString_FromString(const char *);
 PyAPI_FUNC(PyObject *) PyString_FromFormatV(const char*, va_list)
@@ -90,6 +92,7 @@ PyAPI_FUNC(void) _Py_ReleaseInternedStrings(void);
 /* Macro, trading safety for speed */
 #define PyString_AS_STRING(op) (((PyStringObject *)(op))->ob_sval)
 #define PyString_GET_SIZE(op)  Py_SIZE(op)
+#define PyString_TAINT(op) (PyString_Check(op)?(((PyStringObject *)(op))->ob_taint):0)
 
 /* _PyString_Join(sep, x) is like sep.join(x).  sep must be PyStringObject*,
    x must be an iterable object. */

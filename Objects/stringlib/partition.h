@@ -37,11 +37,11 @@ stringlib_partition(
 	return out;
     }
 
-    PyTuple_SET_ITEM(out, 0, STRINGLIB_NEW(str, pos));
+    PyTuple_SET_ITEM(out, 0, STRINGLIB_NEW(str, pos, PyString_TAINT(str_obj)));
     Py_INCREF(sep_obj);
     PyTuple_SET_ITEM(out, 1, sep_obj);
     pos += sep_len;
-    PyTuple_SET_ITEM(out, 2, STRINGLIB_NEW(str + pos, str_len - pos));
+    PyTuple_SET_ITEM(out, 2, STRINGLIB_NEW(str + pos, str_len - pos, PyString_TAINT(str_obj)));
 
     if (PyErr_Occurred()) {
 	Py_DECREF(out);
@@ -87,11 +87,11 @@ stringlib_rpartition(
 	return out;
     }
 
-    PyTuple_SET_ITEM(out, 0, STRINGLIB_NEW(str, pos));
+    PyTuple_SET_ITEM(out, 0, STRINGLIB_NEW(str, pos, PyString_TAINT(str_obj)));
     Py_INCREF(sep_obj);
     PyTuple_SET_ITEM(out, 1, sep_obj);
     pos += sep_len;
-    PyTuple_SET_ITEM(out, 2, STRINGLIB_NEW(str + pos, str_len - pos));
+    PyTuple_SET_ITEM(out, 2, STRINGLIB_NEW(str + pos, str_len - pos, PyString_TAINT(str_obj)));
 
     if (PyErr_Occurred()) {
 	Py_DECREF(out);

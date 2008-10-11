@@ -52,7 +52,7 @@ static PyObject*
 stringlib_lower(PyObject *self)
 {
     PyObject* newobj;
-    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self));
+    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self), PyString_TAINT(self));
     if (!newobj)
             return NULL;
     _Py_bytes_lower(STRINGLIB_STR(newobj), STRINGLIB_STR(self),
@@ -64,7 +64,7 @@ static PyObject*
 stringlib_upper(PyObject *self)
 {
     PyObject* newobj;
-    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self));
+    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self), PyString_TAINT(self));
     if (!newobj)
             return NULL;
     _Py_bytes_upper(STRINGLIB_STR(newobj), STRINGLIB_STR(self),
@@ -76,7 +76,7 @@ static PyObject*
 stringlib_title(PyObject *self)
 {
     PyObject* newobj;
-    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self));
+    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self), PyString_TAINT(self));
     if (!newobj)
             return NULL;
     _Py_bytes_title(STRINGLIB_STR(newobj), STRINGLIB_STR(self),
@@ -88,7 +88,7 @@ static PyObject*
 stringlib_capitalize(PyObject *self)
 {
     PyObject* newobj;
-    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self));
+    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self), PyString_TAINT(self));
     if (!newobj)
             return NULL;
     _Py_bytes_capitalize(STRINGLIB_STR(newobj), STRINGLIB_STR(self),
@@ -100,7 +100,7 @@ static PyObject*
 stringlib_swapcase(PyObject *self)
 {
     PyObject* newobj;
-    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self));
+    newobj = STRINGLIB_NEW(NULL, STRINGLIB_LEN(self), PyString_TAINT(self));
     if (!newobj)
             return NULL;
     _Py_bytes_swapcase(STRINGLIB_STR(newobj), STRINGLIB_STR(self),

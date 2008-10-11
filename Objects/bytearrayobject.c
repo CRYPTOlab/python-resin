@@ -1094,7 +1094,7 @@ bytes_dealloc(PyByteArrayObject *self)
 #define STRINGLIB_CMP memcmp
 #define STRINGLIB_LEN PyByteArray_GET_SIZE
 #define STRINGLIB_STR PyByteArray_AS_STRING
-#define STRINGLIB_NEW PyByteArray_FromStringAndSize
+#define STRINGLIB_NEW(a,b,c) PyByteArray_FromStringAndSize(a,b)
 #define STRINGLIB_EMPTY nullbytes
 #define STRINGLIB_CHECK_EXACT PyByteArray_CheckExact
 #define STRINGLIB_MUTABLE 1

@@ -69,7 +69,7 @@ stringlib_expandtabs(PyObject *self, PyObject *args)
     }
 
     /* Second pass: create output string and fill it */
-    u = STRINGLIB_NEW(NULL, i + j);
+    u = STRINGLIB_NEW(NULL, i + j, PyString_TAINT(self));
     if (!u)
         return NULL;
 
@@ -109,7 +109,7 @@ pad(PyObject *self, Py_ssize_t left, Py_ssize_t right, char fill)
 #if STRINGLIB_MUTABLE
         /* We're defined as returning a copy;  If the object is mutable
          * that means we must make an identical copy. */
-        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self));
+        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self), PyString_TAINT(self));
 #else
         Py_INCREF(self);
         return (PyObject *)self;
@@ -117,7 +117,7 @@ pad(PyObject *self, Py_ssize_t left, Py_ssize_t right, char fill)
     }
 
     u = STRINGLIB_NEW(NULL,
-				   left + STRINGLIB_LEN(self) + right);
+				   left + STRINGLIB_LEN(self) + right, PyString_TAINT(self));
     if (u) {
         if (left)
             memset(STRINGLIB_STR(u), fill, left);
@@ -151,7 +151,7 @@ stringlib_ljust(PyObject *self, PyObject *args)
 #if STRINGLIB_MUTABLE
         /* We're defined as returning a copy;  If the object is mutable
          * that means we must make an identical copy. */
-        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self));
+        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self), PyString_TAINT(self));
 #else
         Py_INCREF(self);
         return (PyObject*) self;
@@ -181,7 +181,7 @@ stringlib_rjust(PyObject *self, PyObject *args)
 #if STRINGLIB_MUTABLE
         /* We're defined as returning a copy;  If the object is mutable
          * that means we must make an identical copy. */
-        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self));
+        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self), PyString_TAINT(self));
 #else
         Py_INCREF(self);
         return (PyObject*) self;
@@ -212,7 +212,7 @@ stringlib_center(PyObject *self, PyObject *args)
 #if STRINGLIB_MUTABLE
         /* We're defined as returning a copy;  If the object is mutable
          * that means we must make an identical copy. */
-        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self));
+        return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self), PyString_TAINT(self));
 #else
         Py_INCREF(self);
         return (PyObject*) self;
@@ -247,7 +247,7 @@ stringlib_zfill(PyObject *self, PyObject *args)
 #if STRINGLIB_MUTABLE
             /* We're defined as returning a copy;  If the object is mutable
              * that means we must make an identical copy. */
-            return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self));
+            return STRINGLIB_NEW(STRINGLIB_STR(self), STRINGLIB_LEN(self), PyString_TAINT(self));
 #else
             Py_INCREF(self);
             return (PyObject*) self;
@@ -256,7 +256,7 @@ stringlib_zfill(PyObject *self, PyObject *args)
         else
             return STRINGLIB_NEW(
                 STRINGLIB_STR(self),
-                STRINGLIB_LEN(self)
+                STRINGLIB_LEN(self), PyString_TAINT(self)
             );
     }
 
@@ -280,7 +280,7 @@ stringlib_zfill(PyObject *self, PyObject *args)
 
 #define _STRINGLIB_SPLIT_APPEND(data, left, right)		\
 	str = STRINGLIB_NEW((data) + (left),	                \
-					 (right) - (left));	\
+					 (right) - (left), PyString_TAINT(self));	\
 	if (str == NULL)					\
 		goto onError;					\
 	if (PyList_Append(list, str)) {				\
