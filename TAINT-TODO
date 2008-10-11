@@ -1,0 +1,11 @@
+propagate in PyString_Format(), stringlib/string_format.h
+PyUnicode
+marshalling
+
+PyString_FromStringAndSize used widely to construct strings out of nowhere
+
+PyString_FromStringAndSizeT associates a taint as well now
+
+"covert channels"
+    concatenating with an empty string discards the empty string's taint?
+
