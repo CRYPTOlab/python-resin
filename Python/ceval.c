@@ -4476,6 +4476,21 @@ string_concatenate(PyObject *v, PyObject *w,
 	}
 
 	if (v->ob_refcnt == 1 && !PyString_CHECK_INTERNED(v)) {
+		PyObject *taint;
+		if (PyString_TAINT(v) == PyString_TAINT(w) || !PyString_TAINT(v) || PyString_TAINT(v) == Py_None) {
+		    taint = PyString_TAINT(w);
+		    Py_XINCREF(taint);
+		} else if (!PyString_TAINT(w) || PyString_TAINT(w) == Py_None) {
+		    taint = PyString_TAINT(v);
+		    Py_XINCREF(taint);
+		} else {
+		    taint = PyObject_CallMethodObjArgs(PyString_TAINT(v),
+						       PyString_FromString("merge"),
+						       PyString_TAINT(w), 0);
+		    if (!taint)
+			return NULL;
+		}
+
 		/* Now we own the last reference to 'v', so we can resize it
 		 * in-place.
 		 */
@@ -4486,11 +4501,14 @@ string_concatenate(PyObject *v, PyObject *w,
 			 * is no value in 'variable', which might (very
 			 * remotely) be a cause of incompatibilities.
 			 */
+			Py_XDECREF(taint);
 			return NULL;
 		}
 		/* copy 'w' into the newly allocated area of 'v' */
 		memcpy(PyString_AS_STRING(v) + v_len,
 		       PyString_AS_STRING(w), w_len);
+		Py_XDECREF(((PyStringObject *) v)->ob_taint);
+		((PyStringObject *) v)->ob_taint = taint;
 		return v;
 	}
 	else {
