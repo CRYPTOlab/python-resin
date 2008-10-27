@@ -2649,6 +2649,10 @@ sock_send(PySocketSockObject *s, PyObject *args)
 	int len, n = -1, flags = 0, timeout;
 	Py_buffer pbuf;
 
+	if (PyTuple_Size(args) >= 1 &&
+	    PyString_ExportCheck(PyTuple_GetItem(args, 0), s) < 0)
+		return NULL;
+
 	if (!PyArg_ParseTuple(args, "s*|i:send", &pbuf, &flags))
 		return NULL;
 
@@ -2696,6 +2700,10 @@ sock_sendall(PySocketSockObject *s, PyObject *args)
 	char *buf;
 	int len, n = -1, flags = 0, timeout;
 	Py_buffer pbuf;
+
+	if (PyTuple_Size(args) >= 1 &&
+	    PyString_ExportCheck(PyTuple_GetItem(args, 0), s) < 0)
+		return NULL;
 
 	if (!PyArg_ParseTuple(args, "s*|i:sendall", &pbuf, &flags))
 		return NULL;
@@ -2757,6 +2765,10 @@ sock_sendto(PySocketSockObject *s, PyObject *args)
 	Py_ssize_t len;
 	sock_addr_t addrbuf;
 	int addrlen, n = -1, flags, timeout;
+
+	if (PyTuple_Size(args) >= 1 &&
+	    PyString_ExportCheck(PyTuple_GetItem(args, 0), s) < 0)
+		return NULL;
 
 	flags = 0;
 	if (!PyArg_ParseTuple(args, "s*O:sendto", &pbuf, &addro)) {

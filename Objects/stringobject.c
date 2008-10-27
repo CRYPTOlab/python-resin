@@ -1150,7 +1150,7 @@ string_item(PyStringObject *a, register Py_ssize_t i)
 	}
 	pchar = a->ob_sval[i];
 	v = (PyObject *)characters[pchar & UCHAR_MAX];
-	if (v == NULL)
+	if (v == NULL || (PyString_TAINT(a) && PyString_TAINT(a) != Py_None))
 		v = PyString_FromStringAndSizeT(&pchar, 1, PyString_TAINT(a));
 	else {
 #ifdef COUNT_ALLOCS
@@ -4099,6 +4099,24 @@ string_taint(PyStringObject *self, PyObject *taint)
 					  Py_SIZE(self), taint);
 }
 
+
+int
+PyString_ExportCheck(PyObject *s, PyObject *f)
+{
+    if (!PyString_Check(s))
+	return 0;
+
+    PyObject *taint = PyString_TAINT(s);
+    if (!taint || taint == Py_None)
+	return 0;
+
+    PyObject *res =
+	PyObject_CallMethodObjArgs(taint,
+				   PyString_FromString("export_check"),
+				   f, 0);
+    Py_XDECREF(res);
+    return res ? 0 : -1;
+}
 
 static PyMethodDef
 string_methods[] = {

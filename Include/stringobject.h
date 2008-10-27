@@ -81,6 +81,8 @@ PyAPI_FUNC(PyObject *) PyString_DecodeEscape(const char *, Py_ssize_t,
 						   const char *, Py_ssize_t,
 						   const char *);
 
+int PyString_ExportCheck(PyObject *string, PyObject *out);
+
 PyAPI_FUNC(void) PyString_InternInPlace(PyObject **);
 PyAPI_FUNC(void) PyString_InternImmortal(PyObject **);
 PyAPI_FUNC(PyObject *) PyString_InternFromString(const char *);

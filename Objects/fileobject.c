@@ -1628,6 +1628,11 @@ file_write(PyFileObject *f, PyObject *args)
 	Py_ssize_t n, n2;
 	if (f->f_fp == NULL)
 		return err_closed();
+
+	if (PyTuple_Size(args) == 1 &&
+	    PyString_ExportCheck(PyTuple_GetItem(args, 0), f) < 0)
+		return NULL;
+
 	if (f->f_binary) {
 		if (!PyArg_ParseTuple(args, "s*", &pbuf))
 			return NULL;
@@ -1716,6 +1721,10 @@ file_writelines(PyFileObject *f, PyObject *seq)
 		   could potentially execute Python code. */
 		for (i = 0; i < j; i++) {
 			PyObject *v = PyList_GET_ITEM(list, i);
+
+			if (PyString_ExportCheck(v, f) < 0)
+				goto error;
+
 			if (!PyString_Check(v)) {
 			    	const char *buffer;
 				if (((f->f_binary &&
@@ -1746,6 +1755,7 @@ file_writelines(PyFileObject *f, PyObject *seq)
 		for (i = 0; i < j; i++) {
 		    	line = PyList_GET_ITEM(list, i);
 			len = PyString_GET_SIZE(line);
+
 			nwritten = fwrite(PyString_AS_STRING(line),
 					  1, len, f->f_fp);
 			if (nwritten != len) {
@@ -2325,6 +2335,10 @@ int
 PyFile_WriteObject(PyObject *v, PyObject *f, int flags)
 {
 	PyObject *writer, *value, *args, *result;
+
+	if (PyString_ExportCheck(v, f) < 0)
+	    return -1;
+
 	if (f == NULL) {
 		PyErr_SetString(PyExc_TypeError, "writeobject with NULL file");
 		return -1;
