@@ -12,6 +12,7 @@ typedef struct {
 	FILE *f_fp;
 	PyObject *f_name;
 	PyObject *f_mode;
+	PyObject *f_input_taint;
 	int (*f_close)(FILE *);
 	int f_softspace;	/* Flag used by 'print' command */
 	int f_binary;		/* Flag which indicates whether the file is 

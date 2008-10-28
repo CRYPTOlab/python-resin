@@ -131,6 +131,7 @@ typedef struct {
 					    sets a Python exception */
 	double sock_timeout;		 /* Operation timeout in seconds;
 					    0.0 means non-blocking */
+	PyObject *sock_input_taint;
 } PySocketSockObject;
 
 /* --- C API ----------------------------------------------------*/

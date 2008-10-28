@@ -1,15 +1,44 @@
-propagate in PyString_Format(), stringlib/string_format.h
-PyUnicode
-marshalling
+taint C API:
 
-PyString_FromStringAndSize used widely to construct strings out of nowhere
+    PyString_FromStringAndSizeT(char *s, int len, PyObject *taint)
+    PyString_ExportCheck(PyObject *s, PyObject *outport)
+	0 for OK, -1 for exception
 
-PyString_FromStringAndSizeT associates a taint as well now
+Python API:
 
-"covert channels"
-    concatenating with an empty string discards the empty string's taint?
+    s = "abc"
+    s.taint(taint_object)
+    s.__taint__ returns taint_object
 
-External taint tracking:
-    file_read{,line,lines,into}
-    sock_recv{,from}{,_into}
+    f = open("/etc/passwd", "r")
+    f.set_taint(taint_object)
+    f.readline().__taint__ returns taint_object
+
+    s = socket...
+    s.set_taint(taint_object)
+    s.recv(512).__taint__ returns taint_object
+
+    taint_object methods:
+	merge(self, other_taint_object)
+	    should return new taint object
+	export_check(self, export_object)
+	    check if OK to send via export_object (file, socket)
+	    return None if ok; throw exception if not
+
+things where it might be worth adding taint:
+
+    propagation
+	PyString_Format()
+	stringlib/string_format.h
+	marshalling
+	sock_recv_into, sock_recvfrom_into
+
+    objects
+	PyUnicode
+	PyBuffer
+	PyByteArray
+
+covert channels, likely don't care
+
+    concatenating with an empty string discards the empty string's taint
 

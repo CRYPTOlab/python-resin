@@ -521,6 +521,7 @@ file_dealloc(PyFileObject *f)
 	Py_XDECREF(f->f_mode);
 	Py_XDECREF(f->f_encoding);
 	Py_XDECREF(f->f_errors);
+	Py_XDECREF(f->f_input_taint);
 	drop_readahead(f);
 	Py_TYPE(f)->tp_free((PyObject *)f);
 }
@@ -965,7 +966,7 @@ file_read(PyFileObject *f, PyObject *args)
 	"requested number of bytes is more than a Python string can hold");
 		return NULL;
 	}
-	v = PyString_FromStringAndSize((char *)NULL, buffersize);
+	v = PyString_FromStringAndSizeT((char *)NULL, buffersize, f->f_input_taint);
 	if (v == NULL)
 		return NULL;
 	bytesread = 0;
@@ -1145,7 +1146,7 @@ getline_via_fgets(PyFileObject *f, FILE *fp)
 			clearerr(fp);
 			if (PyErr_CheckSignals())
 				return NULL;
-			v = PyString_FromStringAndSize(buf, pvfree - buf);
+			v = PyString_FromStringAndSizeT(buf, pvfree - buf, f->f_input_taint);
 			return v;
 		}
 		/* fgets read *something* */
@@ -1174,7 +1175,7 @@ getline_via_fgets(PyFileObject *f, FILE *fp)
 				assert(p > pvfree && *(p-1) == '\0');
 				--p;	/* don't include \0 from fgets */
 			}
-			v = PyString_FromStringAndSize(buf, p - buf);
+			v = PyString_FromStringAndSizeT(buf, p - buf, f->f_input_taint);
 			return v;
 		}
 		/* yuck:  fgets overwrote all the newlines, i.e. the entire
@@ -1195,7 +1196,7 @@ getline_via_fgets(PyFileObject *f, FILE *fp)
 	 * into its buffer.
 	 */
 	total_v_size = MAXBUFSIZE << 1;
-	v = PyString_FromStringAndSize((char*)NULL, (int)total_v_size);
+	v = PyString_FromStringAndSizeT((char*)NULL, (int)total_v_size, f->f_input_taint);
 	if (v == NULL)
 		return v;
 	/* copy over everything except the last null byte */
@@ -1288,7 +1289,7 @@ get_line(PyFileObject *f, int n)
 		return getline_via_fgets(f, fp);
 #endif
 	total_v_size = n > 0 ? n : 100;
-	v = PyString_FromStringAndSize((char *)NULL, total_v_size);
+	v = PyString_FromStringAndSizeT((char *)NULL, total_v_size, f->f_input_taint);
 	if (v == NULL)
 		return NULL;
 	buf = BUF(v);
@@ -1551,8 +1552,8 @@ file_readlines(PyFileObject *f, PyObject *args)
 			}
 			if (big_buffer == NULL) {
 				/* Create the big buffer */
-				big_buffer = PyString_FromStringAndSize(
-					NULL, buffersize);
+				big_buffer = PyString_FromStringAndSizeT(
+					NULL, buffersize, f->f_input_taint);
 				if (big_buffer == NULL)
 					goto error;
 				buffer = PyString_AS_STRING(big_buffer);
@@ -1571,7 +1572,7 @@ file_readlines(PyFileObject *f, PyObject *args)
 		do {
 			/* Process complete lines */
 			p++;
-			line = PyString_FromStringAndSize(q, p-q);
+			line = PyString_FromStringAndSizeT(q, p-q, f->f_input_taint);
 			if (line == NULL)
 				goto error;
 			err = PyList_Append(list, line);
@@ -1590,7 +1591,7 @@ file_readlines(PyFileObject *f, PyObject *args)
 	}
 	if (nfilled != 0) {
 		/* Partial last line */
-		line = PyString_FromStringAndSize(buffer, nfilled);
+		line = PyString_FromStringAndSizeT(buffer, nfilled, f->f_input_taint);
 		if (line == NULL)
 			goto error;
 		if (sizehint > 0) {
@@ -1812,6 +1813,17 @@ file_exit(PyObject *f, PyObject *args)
 	Py_RETURN_NONE;
 }
 
+static PyObject *
+file_set_taint(PyObject *o, PyObject *taint)
+{
+	PyFileObject *f = (PyFileObject *) o;
+	Py_XDECREF(f->f_input_taint);
+	Py_INCREF(taint);
+	f->f_input_taint = taint;
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 PyDoc_STRVAR(readline_doc,
 "readline([size]) -> next line from the file, as a string.\n"
 "\n"
@@ -1919,6 +1931,7 @@ static PyMethodDef file_methods[] = {
 	{"flush",     (PyCFunction)file_flush,    METH_NOARGS,  flush_doc},
 	{"close",     (PyCFunction)file_close,    METH_NOARGS,  close_doc},
 	{"isatty",    (PyCFunction)file_isatty,   METH_NOARGS,  isatty_doc},
+	{"set_taint", (PyCFunction)file_set_taint, METH_O, 0 },
 	{"__enter__", (PyCFunction)file_self,     METH_NOARGS,  enter_doc},
 	{"__exit__",  (PyCFunction)file_exit,     METH_VARARGS, exit_doc},
 	{NULL,	      NULL}		/* sentinel */
@@ -2153,6 +2166,9 @@ file_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		((PyFileObject *)self)->f_errors = Py_None;
 		((PyFileObject *)self)->weakreflist = NULL;
 		((PyFileObject *)self)->unlocked_count = 0;
+
+		((PyFileObject *)self)->f_input_taint = Py_None;
+		Py_INCREF(Py_None);
 	}
 	return self;
 }

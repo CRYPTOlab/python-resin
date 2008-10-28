@@ -2366,6 +2366,16 @@ sock_recv_guts(PySocketSockObject *s, char* cbuf, int len, int flags)
 	return outlen;
 }
 
+static PyObject *
+sock_set_taint(PySocketSockObject *s, PyObject *taint)
+{
+	Py_XDECREF(s->sock_input_taint);
+	Py_INCREF(taint);
+	s->sock_input_taint = taint;
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
 
 /* s.recv(nbytes [,flags]) method */
 
@@ -2386,7 +2396,7 @@ sock_recv(PySocketSockObject *s, PyObject *args)
 	}
 
 	/* Allocate a new string. */
-	buf = PyString_FromStringAndSize((char *) 0, recvlen);
+	buf = PyString_FromStringAndSizeT((char *) 0, recvlen, s->sock_input_taint);
 	if (buf == NULL)
 		return NULL;
 
@@ -2560,7 +2570,7 @@ sock_recvfrom(PySocketSockObject *s, PyObject *args)
 		return NULL;
 	}
 
-	buf = PyString_FromStringAndSize((char *) 0, recvlen);
+	buf = PyString_FromStringAndSizeT((char *) 0, recvlen, s->sock_input_taint);
 	if (buf == NULL)
 		return NULL;
 
@@ -2910,6 +2920,8 @@ static PyMethodDef sock_methods[] = {
 			  recvfrom_doc},
 	{"recvfrom_into",  (PyCFunction)sock_recvfrom_into, METH_VARARGS | METH_KEYWORDS,
 			  recvfrom_into_doc},
+	{"set_taint",	  (PyCFunction)sock_set_taint, METH_O,
+			  0},
 	{"send",	  (PyCFunction)sock_send, METH_VARARGS,
 			  send_doc},
 	{"sendall",	  (PyCFunction)sock_sendall, METH_VARARGS,
@@ -2950,6 +2962,9 @@ sock_dealloc(PySocketSockObject *s)
 {
 	if (s->sock_fd != -1)
 		(void) SOCKETCLOSE(s->sock_fd);
+	Py_XDECREF(s->sock_input_taint);
+	s->sock_input_taint = 0;
+
 	Py_TYPE(s)->tp_free((PyObject *)s);
 }
 
@@ -2991,6 +3006,8 @@ sock_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		((PySocketSockObject *)new)->sock_fd = -1;
 		((PySocketSockObject *)new)->sock_timeout = -1.0;
 		((PySocketSockObject *)new)->errorhandler = &set_error;
+		((PySocketSockObject *)new)->sock_input_taint = Py_None;
+		Py_INCREF(Py_None);
 	}
 	return new;
 }

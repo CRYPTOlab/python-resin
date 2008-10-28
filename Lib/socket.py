@@ -157,7 +157,7 @@ if sys.platform == "riscos":
 # All the method names that must be delegated to either the real socket
 # object or the _closedsocket object.
 _delegate_methods = ("recv", "recvfrom", "recv_into", "recvfrom_into",
-                     "send", "sendto")
+                     "send", "sendto", "set_taint")
 
 class _closedsocket(object):
     __slots__ = []
