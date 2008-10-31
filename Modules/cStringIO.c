@@ -44,6 +44,7 @@ PyDoc_STRVAR(cStringIO_module_documentation,
 typedef struct {
   PyObject_HEAD
   char *buf;
+  PyObject *taint;
   Py_ssize_t pos, string_size;
 } IOobject;
 
@@ -54,6 +55,7 @@ typedef struct {
 typedef struct { /* Subtype of IOobject */
   PyObject_HEAD
   char *buf;
+  PyObject *taint;
   Py_ssize_t pos, string_size;
 
   Py_ssize_t buf_size;
@@ -65,6 +67,7 @@ typedef struct { /* Subtype of IOobject */
 typedef struct { /* Subtype of IOobject */
   PyObject_HEAD
   char *buf;
+  PyObject *taint;
   Py_ssize_t pos, string_size;
   /* We store a reference to the object here in order to keep
      the buffer alive during the lifetime of the Iobject. */
@@ -120,8 +123,9 @@ static PyObject *
 IO_cgetval(PyObject *self) {
         if (!IO__opencheck(IOOOBJECT(self))) return NULL;
         assert(IOOOBJECT(self)->pos >= 0);
-        return PyString_FromStringAndSize(((IOobject*)self)->buf,
-                                          ((IOobject*)self)->pos);
+        return PyString_FromStringAndSizeT(((IOobject*)self)->buf,
+                                           ((IOobject*)self)->pos,
+					   ((IOobject*)self)->taint);
 }
 
 static PyObject *
@@ -139,7 +143,7 @@ IO_getval(IOobject *self, PyObject *args) {
         else
                   s=self->string_size;
         assert(self->pos >= 0);
-        return PyString_FromStringAndSize(self->buf, s);
+        return PyString_FromStringAndSizeT(self->buf, s, self->taint);
 }
 
 PyDoc_STRVAR(IO_isatty__doc__, "isatty(): always returns 0");
@@ -181,7 +185,7 @@ IO_read(IOobject *self, PyObject *args) {
 
         if ( (n=IO_cread((PyObject*)self,&output,n)) < 0) return NULL;
 
-        return PyString_FromStringAndSize(output, n);
+        return PyString_FromStringAndSizeT(output, n, ((IOobject*)self)->taint);
 }
 
 PyDoc_STRVAR(IO_readline__doc__, "readline() -- Read one line");
@@ -225,7 +229,7 @@ IO_readline(IOobject *self, PyObject *args) {
                 self->pos -= m;
         }
         assert(IOOOBJECT(self)->pos >= 0);
-        return PyString_FromStringAndSize(output, n);
+        return PyString_FromStringAndSizeT(output, n, ((IOobject*)self)->taint);
 }
 
 PyDoc_STRVAR(IO_readlines__doc__, "readlines() -- Read all lines");
@@ -248,7 +252,7 @@ IO_readlines(IOobject *self, PyObject *args) {
                         goto err;
 		if (n == 0)
 			break;
-		line = PyString_FromStringAndSize (output, n);
+		line = PyString_FromStringAndSizeT (output, n, ((IOobject*)self)->taint);
 		if (!line) 
                         goto err;
 		if (PyList_Append (result, line) == -1) {
@@ -431,6 +435,26 @@ O_write(Oobject *self, PyObject *args) {
         char *c;
         int l;
 
+	if (PyTuple_Size(args) >= 1) {
+	    PyObject *o = PyTuple_GetItem(args, 0);
+	    if (PyString_Check(o)) {
+		PyObject *new_taint;
+		if (!self->taint || self->taint == Py_None) {
+		    new_taint = PyString_TAINT(o);
+		    Py_XINCREF(new_taint);
+		} else if (!PyString_TAINT(o) || PyString_TAINT(o) == Py_None) {
+		    new_taint = self->taint;
+		    Py_XINCREF(new_taint);
+		} else {
+		    new_taint = PyObject_CallMethodObjArgs(self->taint,
+							   PyString_FromString("merge"),
+							   PyString_TAINT(o), 0);
+		}
+		Py_XDECREF(self->taint);
+		self->taint = new_taint;
+	    }
+	}
+
         if (!PyArg_ParseTuple(args, "t#:write", &c, &l)) return NULL;
 
         if (O_cwrite((PyObject*)self,c,l) < 0) return NULL;
@@ -467,6 +491,24 @@ O_writelines(Oobject *self, PyObject *args) {
 	while ((s = PyIter_Next(it)) != NULL) {
 		Py_ssize_t n;
 		char *c;
+
+		if (PyString_Check(s)) {
+		    PyObject *new_taint;
+		    if (!self->taint || self->taint == Py_None) {
+			new_taint = PyString_TAINT(s);
+			Py_XINCREF(new_taint);
+		    } else if (!PyString_TAINT(s) || PyString_TAINT(s) == Py_None) {
+			new_taint = self->taint;
+			Py_XINCREF(new_taint);
+		    } else {
+			new_taint = PyObject_CallMethodObjArgs(self->taint,
+							       PyString_FromString("merge"),
+							       PyString_TAINT(s), 0);
+		    }
+		    Py_XDECREF(self->taint);
+		    self->taint = new_taint;
+		}
+
 		if (PyString_AsStringAndSize(s, &c, &n) == -1) {
 			Py_DECREF(it);
 			Py_DECREF(s);
@@ -519,6 +561,8 @@ static void
 O_dealloc(Oobject *self) {
         if (self->buf != NULL)
                 free(self->buf);
+	Py_XDECREF(self->taint);
+	self->taint = 0;
         PyObject_Del(self);
 }
 
@@ -568,6 +612,7 @@ newOobject(int  size) {
         self->pos=0;
         self->string_size = 0;
         self->softspace = 0;
+	self->taint = 0;
 
         self->buf = (char *)malloc(size);
 	if (!self->buf) {
@@ -635,6 +680,8 @@ static struct PyMethodDef I_methods[] = {
 
 static void
 I_dealloc(Iobject *self) {
+  Py_XDECREF(self->taint);
+  self->taint = 0;
   Py_XDECREF(self->pbuf);
   PyObject_Del(self);
 }
@@ -696,6 +743,8 @@ newIobject(PyObject *s) {
   self->string_size=size;
   self->pbuf=s;
   self->pos=0;
+  self->taint = PyString_TAINT(s);
+  Py_XINCREF(self->taint);
   
   return (PyObject*)self;
 }
