@@ -42,3 +42,11 @@ covert channels, likely don't care
 
     concatenating with an empty string discards the empty string's taint
 
+apps
+
+    eddie's password bug
+    sensitive data, diff. classes of data for same user (CC#, SSN, etc)
+    convert taint into something else at the edges?
+
+    taint in Ruby?
+
