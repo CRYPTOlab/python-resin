@@ -23,6 +23,7 @@ class Taint:
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.set_taint(Taint(123))
+s.__meta__ = "just testing"
 s.connect(("kk.csail.mit.edu", 80))
 
 s.send("GET / HTTP/1.0\r\n\r\n")

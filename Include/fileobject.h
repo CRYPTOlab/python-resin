@@ -26,6 +26,7 @@ typedef struct {
 	int f_skipnextlf;	/* Skip next \n */
 	PyObject *f_encoding;
 	PyObject *f_errors;
+	PyObject *f_meta;
 	PyObject *weakreflist; /* List of weak references */
 	int unlocked_count;	/* Num. currently running sections of code
 				   using f_fp with the GIL released. */

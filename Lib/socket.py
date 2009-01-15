@@ -174,13 +174,13 @@ class _closedsocket(object):
 class _socketobject(object):
 
     __doc__ = _realsocket.__doc__
-
-    __slots__ = ["_sock", "__weakref__"] + list(_delegate_methods)
+    __slots__ = ["_sock", "__weakref__", "__meta__"] + list(_delegate_methods)
 
     def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, _sock=None):
         if _sock is None:
             _sock = _realsocket(family, type, proto)
         self._sock = _sock
+        self.__meta__ = None
         for method in _delegate_methods:
             setattr(self, method, getattr(_sock, method))
 

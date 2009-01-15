@@ -132,6 +132,7 @@ typedef struct {
 	double sock_timeout;		 /* Operation timeout in seconds;
 					    0.0 means non-blocking */
 	PyObject *sock_input_taint;
+	PyObject *sock_meta;
 } PySocketSockObject;
 
 /* --- C API ----------------------------------------------------*/

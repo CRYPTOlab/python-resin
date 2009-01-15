@@ -2951,6 +2951,7 @@ static PyMemberDef sock_memberlist[] = {
        {"type", T_INT, offsetof(PySocketSockObject, sock_type), READONLY, "the socket type"},
        {"proto", T_INT, offsetof(PySocketSockObject, sock_proto), READONLY, "the socket protocol"},
        {"timeout", T_DOUBLE, offsetof(PySocketSockObject, sock_timeout), READONLY, "the socket timeout"},
+       {"__meta__", T_OBJECT, offsetof(PySocketSockObject, sock_meta), 0, "Security metadata"},
        {0},
 };
 
@@ -2964,6 +2965,8 @@ sock_dealloc(PySocketSockObject *s)
 		(void) SOCKETCLOSE(s->sock_fd);
 	Py_XDECREF(s->sock_input_taint);
 	s->sock_input_taint = 0;
+	Py_XDECREF(s->sock_meta);
+	s->sock_meta = 0;
 
 	Py_TYPE(s)->tp_free((PyObject *)s);
 }
@@ -3007,6 +3010,8 @@ sock_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		((PySocketSockObject *)new)->sock_timeout = -1.0;
 		((PySocketSockObject *)new)->errorhandler = &set_error;
 		((PySocketSockObject *)new)->sock_input_taint = Py_None;
+		Py_INCREF(Py_None);
+		((PySocketSockObject *)new)->sock_meta = Py_None;
 		Py_INCREF(Py_None);
 	}
 	return new;

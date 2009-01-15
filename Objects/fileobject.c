@@ -156,6 +156,7 @@ fill_file_fields(PyFileObject *f, FILE *fp, PyObject *name, char *mode,
 	Py_DECREF(f->f_mode);
 	Py_DECREF(f->f_encoding);
 	Py_DECREF(f->f_errors);
+	Py_DECREF(f->f_meta);
 
         Py_INCREF(name);
         f->f_name = name;
@@ -173,6 +174,8 @@ fill_file_fields(PyFileObject *f, FILE *fp, PyObject *name, char *mode,
 	f->f_encoding = Py_None;
 	Py_INCREF(Py_None);
 	f->f_errors = Py_None;
+	Py_INCREF(Py_None);
+	f->f_meta = Py_None;
 
 	if (f->f_mode == NULL)
 		return NULL;
@@ -521,6 +524,7 @@ file_dealloc(PyFileObject *f)
 	Py_XDECREF(f->f_mode);
 	Py_XDECREF(f->f_encoding);
 	Py_XDECREF(f->f_errors);
+	Py_XDECREF(f->f_meta);
 	Py_XDECREF(f->f_input_taint);
 	drop_readahead(f);
 	Py_TYPE(f)->tp_free((PyObject *)f);
@@ -1948,6 +1952,8 @@ static PyMemberDef file_memberlist[] = {
 	 "file encoding"},
 	{"errors",	T_OBJECT,	OFF(f_errors),	RO,
 	 "Unicode error handler"},
+	{"__meta__",	T_OBJECT,	OFF(f_meta),	0,
+	 "Security metadata"},
 	/* getattr(f, "closed") is implemented without this table */
 	{NULL}	/* Sentinel */
 };
@@ -2164,6 +2170,8 @@ file_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 		((PyFileObject *)self)->f_encoding = Py_None;
 		Py_INCREF(Py_None);
 		((PyFileObject *)self)->f_errors = Py_None;
+		Py_INCREF(Py_None);
+		((PyFileObject *)self)->f_meta = Py_None;
 		((PyFileObject *)self)->weakreflist = NULL;
 		((PyFileObject *)self)->unlocked_count = 0;
 
