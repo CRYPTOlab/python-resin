@@ -1284,7 +1284,7 @@ find_module(char *fullname, char *subname, PyObject *path, char *buf,
 #ifdef Py_USING_UNICODE
 		if (PyUnicode_Check(v)) {
 			copy = PyUnicode_Encode(PyUnicode_AS_UNICODE(v),
-				PyUnicode_GET_SIZE(v), Py_FileSystemDefaultEncoding, NULL);
+				PyUnicode_GET_SIZE(v), PyUnicode_TAINT(v), Py_FileSystemDefaultEncoding, NULL);
 			if (copy == NULL)
 				return NULL;
 			v = copy;

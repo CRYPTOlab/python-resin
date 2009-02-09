@@ -133,12 +133,23 @@ output_extend(OutputString *output, Py_ssize_t count)
     1 for success.
 */
 static int
-output_data(OutputString *output, const STRINGLIB_CHAR *s, Py_ssize_t count)
+output_data(OutputString *output, const STRINGLIB_CHAR *s, Py_ssize_t count, PyObject *taint)
 {
     if ((count > output->end - output->ptr) && !output_extend(output, count))
         return 0;
     memcpy(output->ptr, s, count * sizeof(STRINGLIB_CHAR));
     output->ptr += count;
+
+    if (STRINGLIB_TAINT(output->obj) == 0 || STRINGLIB_TAINT(output->obj) == Py_None) {
+	STRINGLIB_TAINT(output->obj) = taint;
+    } else if (taint && taint != Py_None) {
+	PyObject *t = PyObject_CallMethodObjArgs(STRINGLIB_TAINT(output->obj), PyString_FromString("merge"), taint, 0);
+	if (!t)
+	    return 0;
+	Py_XDECREF(STRINGLIB_TAINT(output->obj));
+	STRINGLIB_TAINT(output->obj) = t;
+    }
+
     return 1;
 }
 
@@ -546,7 +557,7 @@ render_field(PyObject *fieldobj, SubString *format_spec, OutputString *output)
 #endif
 
     ok = output_data(output,
-                     STRINGLIB_STR(result), STRINGLIB_LEN(result));
+                     STRINGLIB_STR(result), STRINGLIB_LEN(result), STRINGLIB_TAINT(result));
 done:
     Py_XDECREF(format_spec_object);
     Py_XDECREF(result);
@@ -878,7 +889,7 @@ do_markup(SubString *input, PyObject *args, PyObject *kwargs,
     while ((result = MarkupIterator_next(&iter, &literal, &field_name,
                                          &format_spec, &conversion,
                                          &format_spec_needs_expanding)) == 2) {
-        if (!output_data(output, literal.ptr, literal.end - literal.ptr))
+        if (!output_data(output, literal.ptr, literal.end - literal.ptr, 0))
             return 0;
         if (field_name.ptr != field_name.end)
             if (!output_markup(&field_name, &format_spec,

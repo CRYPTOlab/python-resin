@@ -4966,6 +4966,22 @@ PyString_Format(PyObject *format, PyObject *args)
 					goto unicode;
 				}
 #endif
+				if (PyString_TAINT(temp) && PyString_TAINT(temp) != Py_None) {
+				    if (PyString_TAINT(result) && PyString_TAINT(result) != Py_None) {
+					PyObject *taint = PyObject_CallMethodObjArgs(PyString_TAINT(result), PyString_FromString("merge"), PyString_TAINT(temp), 0);
+					if (!temp) {
+					    Py_XDECREF(temp);
+					    goto error;
+					}
+					Py_XDECREF(PyString_TAINT(result));
+					((PyStringObject *) result)->ob_taint = taint;
+				    } else {
+					Py_XINCREF(PyString_TAINT(temp));
+					Py_XDECREF(PyString_TAINT(result));
+					((PyStringObject *) result)->ob_taint = PyString_TAINT(temp);
+				    }
+				}
+
 				/* Fall through */
 			case 'r':
 				if (c == 'r')
@@ -5205,7 +5221,7 @@ PyString_Format(PyObject *format, PyObject *args)
 		goto error;
 	fmtcnt = PyString_GET_SIZE(format) - \
 		 (fmt - PyString_AS_STRING(format));
-	format = PyUnicode_Decode(fmt, fmtcnt, NULL, NULL);
+	format = PyUnicode_Decode(fmt, fmtcnt, 0, NULL, NULL);
 	if (format == NULL)
 		goto error;
 	v = PyUnicode_Format(format, args);

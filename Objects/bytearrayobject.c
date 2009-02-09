@@ -3094,7 +3094,7 @@ bytes_reduce(PyByteArrayObject *self)
     PyObject *latin1, *dict;
     if (self->ob_bytes)
         latin1 = PyUnicode_DecodeLatin1(self->ob_bytes,
-                                        Py_SIZE(self), NULL);
+                                        Py_SIZE(self), 0, NULL);
     else
         latin1 = PyUnicode_FromString("");
 

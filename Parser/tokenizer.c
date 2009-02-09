@@ -560,7 +560,7 @@ buf_setreadl(struct tok_state *tok, const char* enc) {
 static PyObject *
 translate_into_utf8(const char* str, const char* enc) {
 	PyObject *utf8;
-	PyObject* buf = PyUnicode_Decode(str, strlen(str), enc, NULL);
+	PyObject* buf = PyUnicode_Decode(str, strlen(str), 0, enc, NULL);
 	if (buf == NULL)
 		return NULL;
 	utf8 = PyUnicode_AsUTF8String(buf);
@@ -711,7 +711,7 @@ tok_stdin_decode(struct tok_state *tok, char **inp)
 	Py_INCREF(enc);
 
 	encoding = PyString_AsString(enc);
-	decoded = PyUnicode_Decode(*inp, strlen(*inp), encoding, NULL);
+	decoded = PyUnicode_Decode(*inp, strlen(*inp), 0, encoding, NULL);
 	if (decoded == NULL)
 		goto error_clear;
 

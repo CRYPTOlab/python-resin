@@ -472,9 +472,10 @@ PyAPI_FUNC(PyObject*) PyUnicode_FromUnicodeT(
     const Py_UNICODE *u, Py_ssize_t size, PyObject *taint);
 
 /* Similar to PyUnicode_FromUnicode(), but u points to Latin-1 encoded bytes */
-PyAPI_FUNC(PyObject*) PyUnicode_FromStringAndSize(
+PyAPI_FUNC(PyObject*) PyUnicode_FromStringAndSizeT(
     const char *u,        /* char buffer */
-    Py_ssize_t size       /* size of buffer */
+    Py_ssize_t size,       /* size of buffer */
+    PyObject *taint
     );
 
 /* Similar to PyUnicode_FromUnicode(), but u points to null-terminated
@@ -679,6 +680,7 @@ PyAPI_FUNC(int) PyUnicode_SetDefaultEncoding(
 PyAPI_FUNC(PyObject*) PyUnicode_Decode(
     const char *s,              /* encoded string */
     Py_ssize_t size,            /* size of buffer */
+    PyObject *taint,
     const char *encoding,       /* encoding */
     const char *errors          /* error handling */
     );
@@ -689,6 +691,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_Decode(
 PyAPI_FUNC(PyObject*) PyUnicode_Encode(
     const Py_UNICODE *s,        /* Unicode char buffer */
     Py_ssize_t size,            /* number of Py_UNICODE chars to encode */
+    PyObject *taint,
     const char *encoding,       /* encoding */
     const char *errors          /* error handling */
     );
@@ -721,12 +724,14 @@ PyAPI_FUNC(PyObject*) PyUnicode_BuildEncodingMap(
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7(
     const char *string, 	/* UTF-7 encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7Stateful(
     const char *string, 	/* UTF-7 encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors,		/* error handling */
     Py_ssize_t *consumed	/* bytes consumed */
     );
@@ -734,6 +739,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7Stateful(
 PyAPI_FUNC(PyObject*) PyUnicode_EncodeUTF7(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 		/* number of Py_UNICODE chars to encode */
+    PyObject *taint,
     int encodeSetO,             /* force the encoder to encode characters in
                                    Set O, as described in RFC2152 */
     int encodeWhiteSpace,       /* force the encoder to encode space, tab,
@@ -974,6 +980,7 @@ PyObject *_PyUnicode_DecodeUnicodeInternal(
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeLatin1(
     const char *string, 	/* Latin-1 encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
@@ -997,6 +1004,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_EncodeLatin1(
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeASCII(
     const char *string, 	/* ASCII encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
@@ -1036,6 +1044,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_EncodeASCII(
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeCharmap(
     const char *string, 	/* Encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     PyObject *mapping,		/* character mapping 
 				   (char ordinal -> unicode ordinal) */
     const char *errors		/* error handling */
@@ -1050,6 +1059,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_AsCharmapString(
 PyAPI_FUNC(PyObject*) PyUnicode_EncodeCharmap(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 	/* Number of Py_UNICODE chars to encode */
+    PyObject *taint,
     PyObject *mapping,		/* character mapping 
 				   (unicode ordinal -> char ordinal) */
     const char *errors		/* error handling */
@@ -1071,6 +1081,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_EncodeCharmap(
 PyAPI_FUNC(PyObject *) PyUnicode_TranslateCharmap(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 		/* Number of Py_UNICODE chars to encode */
+    PyObject *taint,
     PyObject *table,		/* Translate table */
     const char *errors		/* error handling */
     );

@@ -243,7 +243,7 @@ utf_7_decode(PyObject *self,
 	return NULL;
     consumed = pbuf.len;
 
-    decoded = PyUnicode_DecodeUTF7Stateful(pbuf.buf, pbuf.len, errors,
+    decoded = PyUnicode_DecodeUTF7Stateful(pbuf.buf, pbuf.len, 0, errors,
 					   final ? NULL : &consumed);
 	PyBuffer_Release(&pbuf);
     if (decoded == NULL)
@@ -526,7 +526,7 @@ latin_1_decode(PyObject *self,
 			  &pbuf, &errors))
 	return NULL;
 
-	unicode = PyUnicode_DecodeLatin1(pbuf.buf, pbuf.len, errors);
+	unicode = PyUnicode_DecodeLatin1(pbuf.buf, pbuf.len, 0, errors);
 	PyBuffer_Release(&pbuf);
 	return codec_tuple(unicode, pbuf.len);
 }
@@ -543,7 +543,7 @@ ascii_decode(PyObject *self,
 			  &pbuf, &errors))
 	return NULL;
 
-	unicode = PyUnicode_DecodeASCII(pbuf.buf, pbuf.len, errors);
+	unicode = PyUnicode_DecodeASCII(pbuf.buf, pbuf.len, 0, errors);
 	PyBuffer_Release(&pbuf);
 	return codec_tuple(unicode, pbuf.len);
 }
@@ -563,7 +563,7 @@ charmap_decode(PyObject *self,
     if (mapping == Py_None)
 	mapping = NULL;
 
-	unicode = PyUnicode_DecodeCharmap(pbuf.buf, pbuf.len, mapping, errors);
+	unicode = PyUnicode_DecodeCharmap(pbuf.buf, pbuf.len, 0, mapping, errors);
 	PyBuffer_Release(&pbuf);
 	return codec_tuple(unicode, pbuf.len);
 }
@@ -672,6 +672,7 @@ utf_7_encode(PyObject *self,
 	return NULL;
     v = codec_tuple(PyUnicode_EncodeUTF7(PyUnicode_AS_UNICODE(str),
 					 PyUnicode_GET_SIZE(str),
+					 PyUnicode_TAINT(str),
 					 0,
 					 0,
 					 errors),
@@ -968,6 +969,7 @@ charmap_encode(PyObject *self,
     v = codec_tuple(PyUnicode_EncodeCharmap(
 			       PyUnicode_AS_UNICODE(str),
 			       PyUnicode_GET_SIZE(str),
+			       PyUnicode_TAINT(str),
 			       mapping,
 			       errors),
 		    PyUnicode_GET_SIZE(str));

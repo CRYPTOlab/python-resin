@@ -24,5 +24,6 @@
 #define STRINGLIB_CMP            memcmp
 #define STRINGLIB_TOSTR          PyObject_Str
 #define STRINGLIB_GROUPING       _PyString_InsertThousandsGrouping
+#define STRINGLIB_TAINT(o) (((PyStringObject *)o)->ob_taint)
 
 #endif /* !STRINGLIB_STRINGDEFS_H */

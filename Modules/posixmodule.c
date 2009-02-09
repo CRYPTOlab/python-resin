@@ -2035,7 +2035,7 @@ posix_getcwdu(PyObject *self, PyObject *noargs)
 	Py_END_ALLOW_THREADS
 	if (res == NULL)
 		return posix_error();
-	return PyUnicode_Decode(buf, strlen(buf), Py_FileSystemDefaultEncoding,"strict");
+	return PyUnicode_Decode(buf, strlen(buf), 0, Py_FileSystemDefaultEncoding,"strict");
 }
 #endif
 #endif
