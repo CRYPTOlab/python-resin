@@ -592,7 +592,7 @@ PyObject *PyString_DecodeEscape(const char *s,
 				t = s;
 				/* Decode non-ASCII bytes as UTF-8. */
 				while (t < end && (*t & 0x80)) t++;
-				u = PyUnicode_DecodeUTF8(s, t - s, errors);
+				u = PyUnicode_DecodeUTF8(s, t - s, 0, errors);
 				if(!u) goto failed;
 
 				/* Recode them in target encoding. */

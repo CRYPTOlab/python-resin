@@ -411,6 +411,7 @@ PyAPI_FUNC(int) PyUnicode_ClearFreeList(void);
 
 typedef struct {
     PyObject_HEAD
+    PyObject *ob_taint;
     Py_ssize_t length;		/* Length of raw Unicode data in buffer */
     Py_UNICODE *str;		/* Raw Unicode buffer */
     long hash;			/* Hash value; -1 if not set */
@@ -434,6 +435,10 @@ PyAPI_DATA(PyTypeObject) PyUnicode_Type;
         (((PyUnicodeObject *)(op))->str)
 #define PyUnicode_AS_DATA(op) \
         ((const char *)((PyUnicodeObject *)(op))->str)
+#define PyUnicode_TAINT(op) (PyUnicode_Check(op)?(((PyUnicodeObject *)(op))->ob_taint):0)
+
+int PyUnicode_ExportCheck(PyObject *op, PyObject *out);
+void PyUnicode_SetTaint(PyObject *op, PyObject *taint);
 
 /* --- Constants ---------------------------------------------------------- */
 
@@ -462,6 +467,9 @@ PyAPI_FUNC(PyObject*) PyUnicode_FromUnicode(
     const Py_UNICODE *u,        /* Unicode buffer */
     Py_ssize_t size             /* size of buffer */
     );
+
+PyAPI_FUNC(PyObject*) PyUnicode_FromUnicodeT(
+    const Py_UNICODE *u, Py_ssize_t size, PyObject *taint);
 
 /* Similar to PyUnicode_FromUnicode(), but u points to Latin-1 encoded bytes */
 PyAPI_FUNC(PyObject*) PyUnicode_FromStringAndSize(
@@ -738,12 +746,14 @@ PyAPI_FUNC(PyObject*) PyUnicode_EncodeUTF7(
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF8(
     const char *string, 	/* UTF-8 encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF8Stateful(
     const char *string, 	/* UTF-8 encoded string */
     Py_ssize_t length,	 	/* size of string */
+    PyObject *taint,
     const char *errors,		/* error handling */
     Py_ssize_t *consumed		/* bytes consumed */
     );
@@ -755,6 +765,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_AsUTF8String(
 PyAPI_FUNC(PyObject*) PyUnicode_EncodeUTF8(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 		/* number of Py_UNICODE chars to encode */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
@@ -973,6 +984,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_AsLatin1String(
 PyAPI_FUNC(PyObject*) PyUnicode_EncodeLatin1(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 		/* Number of Py_UNICODE chars to encode */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 
@@ -995,6 +1007,7 @@ PyAPI_FUNC(PyObject*) PyUnicode_AsASCIIString(
 PyAPI_FUNC(PyObject*) PyUnicode_EncodeASCII(
     const Py_UNICODE *data, 	/* Unicode char buffer */
     Py_ssize_t length,	 		/* Number of Py_UNICODE chars to encode */
+    PyObject *taint,
     const char *errors		/* error handling */
     );
 

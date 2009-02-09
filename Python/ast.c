@@ -3182,7 +3182,7 @@ decode_utf8(struct compiling *c, const char **sPtr, const char *end, char* encod
         /* while (s < end && *s != '\\') s++; */ /* inefficient for u".." */
         while (s < end && (*s & 0x80)) s++;
         *sPtr = s;
-        u = PyUnicode_DecodeUTF8(t, s - t, NULL);
+        u = PyUnicode_DecodeUTF8(t, s - t, 0, NULL);
         if (u == NULL)
                 return NULL;
         v = PyUnicode_AsEncodedString(u, encoding, NULL);
@@ -3324,7 +3324,7 @@ parsestr(struct compiling *c, const char *s)
                         Py_FatalError(
                             "cannot deal with encodings in this build.");
 #else
-                        PyObject *v, *u = PyUnicode_DecodeUTF8(s, len, NULL);
+                        PyObject *v, *u = PyUnicode_DecodeUTF8(s, len, 0, NULL);
                         if (u == NULL)
                                 return NULL;
                         v = PyUnicode_AsEncodedString(u, c->c_encoding, NULL);

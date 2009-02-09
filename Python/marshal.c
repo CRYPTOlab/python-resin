@@ -770,7 +770,7 @@ r_object(RFILE *p)
 			retval = NULL;
 			break;
 		}
-		v = PyUnicode_DecodeUTF8(buffer, n, NULL);
+		v = PyUnicode_DecodeUTF8(buffer, n, 0, NULL);
 		PyMem_DEL(buffer);
 		retval = v;
 		break;

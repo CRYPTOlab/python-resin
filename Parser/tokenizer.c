@@ -1591,7 +1591,7 @@ PyTokenizer_RestoreEncoding(struct tok_state* tok, int len, int* offset)
 static PyObject *
 dec_utf8(const char *enc, const char *text, size_t len) {
 	PyObject *ret = NULL;	
-	PyObject *unicode_text = PyUnicode_DecodeUTF8(text, len, "replace");
+	PyObject *unicode_text = PyUnicode_DecodeUTF8(text, len, 0, "replace");
 	if (unicode_text) {
 		ret = PyUnicode_AsEncodedString(unicode_text, enc, "replace");
 		Py_DECREF(unicode_text);

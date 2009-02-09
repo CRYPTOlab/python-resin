@@ -349,6 +349,7 @@ PyUnicodeObject *_PyUnicode_New(Py_ssize_t length)
     unicode->length = length;
     unicode->hash = -1;
     unicode->defenc = NULL;
+    unicode->ob_taint = NULL;
     return unicode;
 
  onError:
@@ -362,6 +363,9 @@ PyUnicodeObject *_PyUnicode_New(Py_ssize_t length)
 static
 void unicode_dealloc(register PyUnicodeObject *unicode)
 {
+    Py_XDECREF(unicode->ob_taint);
+    unicode->ob_taint = 0;
+
     if (PyUnicode_CheckExact(unicode) &&
 	numfree < PyUnicode_MAXFREELIST) {
         /* Keep-Alive optimization */
@@ -425,8 +429,8 @@ int PyUnicode_Resize(PyObject **unicode, Py_ssize_t length)
 #define _PyUnicode_Resize(unicodevar, length) \
         PyUnicode_Resize(((PyObject **)(unicodevar)), length)
 
-PyObject *PyUnicode_FromUnicode(const Py_UNICODE *u,
-				Py_ssize_t size)
+PyObject *PyUnicode_FromUnicodeT(const Py_UNICODE *u,
+				Py_ssize_t size, PyObject *taint)
 {
     PyUnicodeObject *unicode;
 
@@ -442,7 +446,7 @@ PyObject *PyUnicode_FromUnicode(const Py_UNICODE *u,
 
 	/* Single character Unicode objects in the Latin-1 range are
 	   shared when using this constructor */
-	if (size == 1 && *u < 256) {
+	if (size == 1 && *u < 256 && !taint) {
 	    unicode = unicode_latin1[*u];
 	    if (!unicode) {
 		unicode = _PyUnicode_New(1);
@@ -464,7 +468,13 @@ PyObject *PyUnicode_FromUnicode(const Py_UNICODE *u,
     if (u != NULL)
 	Py_UNICODE_COPY(unicode->str, u, size);
 
+    PyUnicode_SetTaint((PyObject*) unicode, taint);
+
     return (PyObject *)unicode;
+}
+
+PyObject *PyUnicode_FromUnicode(const Py_UNICODE *u, Py_ssize_t size) {
+    return PyUnicode_FromUnicodeT(u, size, 0);
 }
 
 PyObject *PyUnicode_FromStringAndSize(const char *u, Py_ssize_t size)
@@ -504,7 +514,7 @@ PyObject *PyUnicode_FromStringAndSize(const char *u, Py_ssize_t size)
 	    return (PyObject *)unicode;
 	}
 
-        return PyUnicode_DecodeUTF8(u, size, NULL);
+        return PyUnicode_DecodeUTF8(u, size, 0, NULL);
     }
 
     unicode = _PyUnicode_New(size);
@@ -860,7 +870,7 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
 				   the replacement character. */
 				PyObject *u;
 				p = va_arg(vargs, char*);
-				u = PyUnicode_DecodeUTF8(p, strlen(p), 
+				u = PyUnicode_DecodeUTF8(p, strlen(p), 0,
 							 "replace");
 				if (!u)
 					goto fail;
@@ -1132,7 +1142,7 @@ PyObject *PyUnicode_Decode(const char *s,
 
     /* Shortcuts for common default encodings */
     if (strcmp(encoding, "utf-8") == 0)
-        return PyUnicode_DecodeUTF8(s, size, errors);
+        return PyUnicode_DecodeUTF8(s, size, 0, errors);
     else if (strcmp(encoding, "latin-1") == 0)
         return PyUnicode_DecodeLatin1(s, size, errors);
 #if defined(MS_WINDOWS) && defined(HAVE_USABLE_WCHAR_T)
@@ -1770,14 +1780,14 @@ char utf8_code_length[256] = {
 };
 
 PyObject *PyUnicode_DecodeUTF8(const char *s,
-			       Py_ssize_t size,
+			       Py_ssize_t size, PyObject *taint,
 			       const char *errors)
 {
-    return PyUnicode_DecodeUTF8Stateful(s, size, errors, NULL);
+    return PyUnicode_DecodeUTF8Stateful(s, size, taint, errors, NULL);
 }
 
 PyObject *PyUnicode_DecodeUTF8Stateful(const char *s,
-			                Py_ssize_t size,
+			                Py_ssize_t size, PyObject *taint,
 			                const char *errors,
 			                Py_ssize_t *consumed)
 {
@@ -1952,6 +1962,8 @@ PyObject *PyUnicode_DecodeUTF8Stateful(const char *s,
     if (_PyUnicode_Resize(&unicode, p - unicode->str) < 0)
         goto onError;
 
+    PyUnicode_SetTaint((PyObject *) unicode, taint);
+
     Py_XDECREF(errorHandler);
     Py_XDECREF(exc);
     return (PyObject *)unicode;
@@ -1970,7 +1982,7 @@ onError:
 */
 PyObject *
 PyUnicode_EncodeUTF8(const Py_UNICODE *s,
-		     Py_ssize_t size,
+		     Py_ssize_t size, PyObject *taint,
 		     const char *errors)
 {
 #define MAX_SHORT_UNICHARS 300  /* largest size we'll do on the stack */
@@ -2050,7 +2062,7 @@ encodeUCS4:
         /* This was stack allocated. */
         nneeded = p - stackbuf;
         assert(nneeded <= nallocated);
-        v = PyString_FromStringAndSize(stackbuf, nneeded);
+        v = PyString_FromStringAndSizeT(stackbuf, nneeded, taint);
     }
     else {
     	/* Cut back to size actually needed. */
@@ -2070,7 +2082,7 @@ PyObject *PyUnicode_AsUTF8String(PyObject *unicode)
         return NULL;
     }
     return PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(unicode),
-				PyUnicode_GET_SIZE(unicode),
+				PyUnicode_GET_SIZE(unicode), PyUnicode_TAINT(unicode),
 				NULL);
 }
 
@@ -3460,7 +3472,7 @@ static PyObject *unicode_encode_call_errorhandler(const char *errors,
 }
 
 static PyObject *unicode_encode_ucs1(const Py_UNICODE *p,
-				 Py_ssize_t size,
+				 Py_ssize_t size, PyObject *taint,
 				 const char *errors,
 				 int limit)
 {
@@ -3486,7 +3498,7 @@ static PyObject *unicode_encode_ucs1(const Py_UNICODE *p,
 
     /* allocate enough for a simple encoding without
        replacements, if we need more, we'll resize */
-    res = PyString_FromStringAndSize(NULL, size);
+    res = PyString_FromStringAndSizeT(NULL, size, taint);
     if (res == NULL)
         goto onError;
     if (size == 0)
@@ -3635,10 +3647,10 @@ static PyObject *unicode_encode_ucs1(const Py_UNICODE *p,
 }
 
 PyObject *PyUnicode_EncodeLatin1(const Py_UNICODE *p,
-				 Py_ssize_t size,
+				 Py_ssize_t size, PyObject *taint,
 				 const char *errors)
 {
-    return unicode_encode_ucs1(p, size, errors, 256);
+    return unicode_encode_ucs1(p, size, taint, errors, 256);
 }
 
 PyObject *PyUnicode_AsLatin1String(PyObject *unicode)
@@ -3649,6 +3661,7 @@ PyObject *PyUnicode_AsLatin1String(PyObject *unicode)
     }
     return PyUnicode_EncodeLatin1(PyUnicode_AS_UNICODE(unicode),
 				  PyUnicode_GET_SIZE(unicode),
+				  PyUnicode_TAINT(unicode),
 				  NULL);
 }
 
@@ -3714,10 +3727,10 @@ PyObject *PyUnicode_DecodeASCII(const char *s,
 }
 
 PyObject *PyUnicode_EncodeASCII(const Py_UNICODE *p,
-				Py_ssize_t size,
+				Py_ssize_t size, PyObject *taint,
 				const char *errors)
 {
-    return unicode_encode_ucs1(p, size, errors, 128);
+    return unicode_encode_ucs1(p, size, taint, errors, 128);
 }
 
 PyObject *PyUnicode_AsASCIIString(PyObject *unicode)
@@ -3727,7 +3740,7 @@ PyObject *PyUnicode_AsASCIIString(PyObject *unicode)
 	return NULL;
     }
     return PyUnicode_EncodeASCII(PyUnicode_AS_UNICODE(unicode),
-				 PyUnicode_GET_SIZE(unicode),
+				 PyUnicode_GET_SIZE(unicode), PyUnicode_TAINT(unicode),
 				 NULL);
 }
 
@@ -4584,7 +4597,7 @@ PyObject *PyUnicode_EncodeCharmap(const Py_UNICODE *p,
 
     /* Default to Latin-1 */
     if (mapping == NULL)
-	return PyUnicode_EncodeLatin1(p, size, errors);
+	return PyUnicode_EncodeLatin1(p, size, 0, errors);
 
     /* allocate enough for a simple encoding without
        replacements, if we need more, we'll resize */
@@ -5453,6 +5466,8 @@ PyUnicode_Join(PyObject *separator, PyObject *seq)
     PyObject *item;
     Py_ssize_t i;
 
+    PyObject *taint = 0;
+
     fseq = PySequence_Fast(seq, "");
     if (fseq == NULL) {
     	return NULL;
@@ -5551,6 +5566,25 @@ PyUnicode_Join(PyObject *separator, PyObject *seq)
             res_p = PyUnicode_AS_UNICODE(res) + res_used;
 	}
 
+	PyObject *nt = PyUnicode_TAINT(item);
+	if (nt && nt != Py_None) {
+	    PyObject *new_taint;
+	    if (taint && taint != Py_None && taint != nt) {
+		new_taint = PyObject_CallMethodObjArgs(nt, PyString_FromString("merge"), taint, 0);
+	    } else {
+		new_taint = nt;
+		Py_INCREF(new_taint);
+	    }
+
+	    if (!new_taint) {
+		Py_DECREF(item);
+		goto onError;
+	    }
+
+	    Py_XDECREF(taint);
+	    taint = new_taint;
+	}
+
 	/* Copy item, and maybe the separator. */
 	Py_UNICODE_COPY(res_p, PyUnicode_AS_UNICODE(item), itemlen);
 	res_p += itemlen;
@@ -5568,8 +5602,11 @@ PyUnicode_Join(PyObject *separator, PyObject *seq)
     if (_PyUnicode_Resize(&res, res_used) < 0)
 	goto onError;
 
+    PyUnicode_SetTaint((PyObject *) res, taint);
+
  Done:
     Py_XDECREF(internal_separator);
+    Py_XDECREF(taint);
     Py_DECREF(fseq);
     return (PyObject *)res;
 
@@ -5583,7 +5620,15 @@ PyUnicode_Join(PyObject *separator, PyObject *seq)
     Py_XDECREF(internal_separator);
     Py_DECREF(fseq);
     Py_XDECREF(res);
+    Py_XDECREF(taint);
     return NULL;
+}
+
+void PyUnicode_SetTaint(PyObject *op, PyObject *taint) {
+    PyUnicodeObject *u = (PyUnicodeObject *) op;
+    Py_XDECREF(u->ob_taint);
+    Py_XINCREF(taint);
+    u->ob_taint = taint;
 }
 
 static
@@ -5621,8 +5666,8 @@ PyUnicodeObject *pad(PyUnicodeObject *self,
     return u;
 }
 
-#define SPLIT_APPEND(data, left, right)					\
-	str = PyUnicode_FromUnicode((data) + (left), (right) - (left));	\
+#define SPLIT_APPEND(data, left, right, t)				\
+	str = PyUnicode_FromUnicodeT((data) + (left), (right) - (left), t);	\
 	if (!str)							\
 	    goto onError;						\
 	if (PyList_Append(list, str)) {					\
@@ -5653,14 +5698,14 @@ PyObject *split_whitespace(PyUnicodeObject *self,
 	if (j < i) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(buf, j, i);
+	    SPLIT_APPEND(buf, j, i, self->ob_taint);
 	    while (i < len && Py_UNICODE_ISSPACE(buf[i]))
 		i++;
 	    j = i;
 	}
     }
     if (j < len) {
-	SPLIT_APPEND(buf, j, len);
+	SPLIT_APPEND(buf, j, len, self->ob_taint);
     }
     return list;
 
@@ -5707,11 +5752,11 @@ PyObject *PyUnicode_Splitlines(PyObject *string,
 	    if (keepends)
 		eol = i;
 	}
-	SPLIT_APPEND(data, j, eol);
+	SPLIT_APPEND(data, j, eol, PyUnicode_TAINT(string));
 	j = i;
     }
     if (j < len) {
-	SPLIT_APPEND(data, j, len);
+	SPLIT_APPEND(data, j, len, PyUnicode_TAINT(string));
     }
 
     Py_DECREF(string);
@@ -5739,13 +5784,13 @@ PyObject *split_char(PyUnicodeObject *self,
 	if (buf[i] == ch) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(buf, j, i);
+	    SPLIT_APPEND(buf, j, i, self->ob_taint);
 	    i = j = i + 1;
 	} else
 	    i++;
     }
     if (j <= len) {
-	SPLIT_APPEND(buf, j, len);
+	SPLIT_APPEND(buf, j, len, self->ob_taint);
     }
     return list;
 
@@ -5770,13 +5815,13 @@ PyObject *split_substring(PyUnicodeObject *self,
 	if (Py_UNICODE_MATCH(self, i, substring)) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(self->str, j, i);
+	    SPLIT_APPEND(self->str, j, i, self->ob_taint);
 	    i = j = i + sublen;
 	} else
 	    i++;
     }
     if (j <= len) {
-	SPLIT_APPEND(self->str, j, len);
+	SPLIT_APPEND(self->str, j, len, self->ob_taint);
     }
     return list;
 
@@ -5806,14 +5851,14 @@ PyObject *rsplit_whitespace(PyUnicodeObject *self,
 	if (j > i) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(buf, i + 1, j + 1);
+	    SPLIT_APPEND(buf, i + 1, j + 1, self->ob_taint);
 	    while (i >= 0 && Py_UNICODE_ISSPACE(buf[i]))
 		i--;
 	    j = i;
 	}
     }
     if (j >= 0) {
-	SPLIT_APPEND(buf, 0, j + 1);
+	SPLIT_APPEND(buf, 0, j + 1, self->ob_taint);
     }
     if (PyList_Reverse(list) < 0)
         goto onError;
@@ -5840,13 +5885,13 @@ PyObject *rsplit_char(PyUnicodeObject *self,
 	if (buf[i] == ch) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(buf, i + 1, j + 1);
+	    SPLIT_APPEND(buf, i + 1, j + 1, self->ob_taint);
 	    j = i = i - 1;
 	} else
 	    i--;
     }
     if (j >= -1) {
-	SPLIT_APPEND(buf, 0, j + 1);
+	SPLIT_APPEND(buf, 0, j + 1, self->ob_taint);
     }
     if (PyList_Reverse(list) < 0)
         goto onError;
@@ -5873,14 +5918,14 @@ PyObject *rsplit_substring(PyUnicodeObject *self,
 	if (Py_UNICODE_MATCH(self, i, substring)) {
 	    if (maxcount-- <= 0)
 		break;
-	    SPLIT_APPEND(self->str, i + sublen, j);
+	    SPLIT_APPEND(self->str, i + sublen, j, self->ob_taint);
 	    j = i;
 	    i -= sublen;
 	} else
 	    i--;
     }
     if (j >= 0) {
-	SPLIT_APPEND(self->str, 0, j);
+	SPLIT_APPEND(self->str, 0, j, self->ob_taint);
     }
     if (PyList_Reverse(list) < 0)
         goto onError;
@@ -6034,6 +6079,19 @@ PyObject *replace(PyUnicodeObject *self,
         u = _PyUnicode_New(new_size);
         if (!u)
             return NULL;
+
+	PyObject *taint = 0;
+	if (!self->ob_taint || self->ob_taint == Py_None)
+	    taint = str2->ob_taint;
+	else if (!str2->ob_taint || str2->ob_taint == Py_None)
+	    taint = self->ob_taint;
+	else {
+	    taint = PyObject_CallMethodObjArgs(self->ob_taint, PyString_FromString("merge"), str2->ob_taint, 0);
+	    if (!taint)
+		return 0;
+	}
+	PyUnicode_SetTaint((PyObject *) u, taint);
+
         i = 0;
         p = u->str;
         e = self->length - str1->length;
@@ -6446,15 +6504,28 @@ PyObject *PyUnicode_Concat(PyObject *left,
 	return (PyObject *)v;
     }
 
+    PyObject *taint = 0;
+    if (!PyUnicode_TAINT(left) || PyUnicode_TAINT(left) == Py_None)
+	taint = PyUnicode_TAINT(right);
+    else if (!PyUnicode_TAINT(right) || PyUnicode_TAINT(right) == Py_None)
+	taint = PyUnicode_TAINT(left);
+    else {
+	taint = PyObject_CallMethodObjArgs(PyUnicode_TAINT(left), PyString_FromString("merge"), PyUnicode_TAINT(right), 0);
+	if (!taint)
+	    return 0;
+    }
+
     /* Concat the two Unicode strings */
     w = _PyUnicode_New(u->length + v->length);
     if (w == NULL)
 	goto onError;
+    PyUnicode_SetTaint((PyObject *) w, taint);
     Py_UNICODE_COPY(w->str, u->str, u->length);
     Py_UNICODE_COPY(w->str + u->length, v->str, v->length);
 
     Py_DECREF(u);
     Py_DECREF(v);
+    Py_XDECREF(taint);
     return (PyObject *)w;
 
 onError:
@@ -7494,8 +7565,8 @@ unicode_slice(PyUnicodeObject *self, Py_ssize_t start, Py_ssize_t end)
     if (start > end)
         start = end;
     /* copy slice */
-    return (PyObject*) PyUnicode_FromUnicode(self->str + start,
-					     end - start);
+    return (PyObject*) PyUnicode_FromUnicodeT(self->str + start,
+					     end - start, self->ob_taint);
 }
 
 PyObject *PyUnicode_Split(PyObject *s,
@@ -7948,6 +8019,13 @@ unicode_getnewargs(PyUnicodeObject *v)
 	return Py_BuildValue("(u#)", v->str, v->length);
 }
 
+static PyObject *
+unicode_taint(PyUnicodeObject *self, PyObject *taint)
+{
+        return PyUnicode_FromUnicodeT(PyUnicode_AS_UNICODE(self),
+                                     PyUnicode_GET_SIZE(self), taint);
+}
+
 
 static PyMethodDef unicode_methods[] = {
 
@@ -8009,6 +8087,7 @@ static PyMethodDef unicode_methods[] = {
 #endif
 
     {"__getnewargs__",	(PyCFunction)unicode_getnewargs, METH_NOARGS},
+    {"taint", (PyCFunction)unicode_taint, METH_O},
     {NULL, NULL}
 };
 
@@ -8941,6 +9020,22 @@ Create a new Unicode object from the given encoded string.\n\
 encoding defaults to the current default string encoding.\n\
 errors can be 'strict', 'replace' or 'ignore' and defaults to 'strict'.");
 
+static PyObject *
+PyUnicode_GetAttr(PyObject *obj, PyObject *name)
+{
+    PyUnicodeObject *u = (PyUnicodeObject *) obj;
+    if (PyString_Check(name) && !strcmp(PyString_AS_STRING(name), "__taint__")) {
+	PyObject *t = u->ob_taint;
+	if (!t)
+	    t = Py_None;
+
+	Py_INCREF(t);
+	return t;
+    }
+
+    return PyObject_GenericGetAttr(obj, name);
+}
+
 PyTypeObject PyUnicode_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "unicode", 				/* tp_name */
@@ -8959,7 +9054,7 @@ PyTypeObject PyUnicode_Type = {
     (hashfunc) unicode_hash, 		/* tp_hash*/
     0, 					/* tp_call*/
     (reprfunc) unicode_str,	 	/* tp_str */
-    PyObject_GenericGetAttr, 		/* tp_getattro */
+    PyUnicode_GetAttr,			/* tp_getattro */
     0,			 		/* tp_setattro */
     &unicode_as_buffer,			/* tp_as_buffer */
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES |

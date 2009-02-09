@@ -266,7 +266,7 @@ utf_8_decode(PyObject *self,
 	return NULL;
     consumed = pbuf.len;
 
-    decoded = PyUnicode_DecodeUTF8Stateful(pbuf.buf, pbuf.len, errors,
+    decoded = PyUnicode_DecodeUTF8Stateful(pbuf.buf, pbuf.len, 0, errors,
 					   final ? NULL : &consumed);
 	PyBuffer_Release(&pbuf);
     if (decoded == NULL)
@@ -696,6 +696,7 @@ utf_8_encode(PyObject *self,
 	return NULL;
     v = codec_tuple(PyUnicode_EncodeUTF8(PyUnicode_AS_UNICODE(str),
 					 PyUnicode_GET_SIZE(str),
+					 PyUnicode_TAINT(str),
 					 errors),
 		    PyUnicode_GET_SIZE(str));
     Py_DECREF(str);
@@ -916,6 +917,7 @@ latin_1_encode(PyObject *self,
     v = codec_tuple(PyUnicode_EncodeLatin1(
 			       PyUnicode_AS_UNICODE(str),
 			       PyUnicode_GET_SIZE(str),
+			       PyUnicode_TAINT(str),
 			       errors),
 		    PyUnicode_GET_SIZE(str));
     Py_DECREF(str);
@@ -939,6 +941,7 @@ ascii_encode(PyObject *self,
     v = codec_tuple(PyUnicode_EncodeASCII(
 			       PyUnicode_AS_UNICODE(str),
 			       PyUnicode_GET_SIZE(str),
+			       PyUnicode_TAINT(str),
 			       errors),
 		    PyUnicode_GET_SIZE(str));
     Py_DECREF(str);
