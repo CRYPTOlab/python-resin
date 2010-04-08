@@ -275,7 +275,7 @@ PyObject* pysqlite_unicode_from_string(const char* val_str, int optimize)
     if (is_ascii) {
         return PyString_FromString(val_str);
     } else {
-        return PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL);
+        return PyUnicode_DecodeUTF8(val_str, strlen(val_str), NULL, NULL);
     }
 }
 
