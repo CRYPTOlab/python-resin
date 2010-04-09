@@ -1893,7 +1893,7 @@ makestring(const char* string, int size)
 
 #if defined(Py_USING_UNICODE)
     if (checkstring(string, size))
-        return PyUnicode_DecodeUTF8(string, size, "strict");
+        return PyUnicode_DecodeUTF8(string, size, 0, "strict");
 #endif
 
     return PyString_FromStringAndSize(string, size);
@@ -1949,7 +1949,7 @@ makeuniversal(XMLParserObject* self, const char* string)
            it's not an utf-8 string */
         p = PyString_AS_STRING(tag);
         if (checkstring(p, size)) {
-            value = PyUnicode_DecodeUTF8(p, size, "strict");
+            value = PyUnicode_DecodeUTF8(p, size, 0, "strict");
             Py_DECREF(tag);
             if (!value) {
                 Py_DECREF(key);
@@ -2188,7 +2188,7 @@ expat_unknown_encoding_handler(XMLParserObject *self, const XML_Char *name,
     for (i = 0; i < 256; i++)
         s[i] = i;
     
-    u = PyUnicode_Decode((char*) s, 256, name, "replace");
+    u = PyUnicode_Decode((char*) s, 256, 0, name, "replace");
     if (!u)
         return XML_STATUS_ERROR;
 

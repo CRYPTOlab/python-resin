@@ -136,7 +136,7 @@ ascii_escape_str(PyObject *pystr)
             /* We hit a non-ASCII character, bail to unicode mode */
             PyObject *uni;
             Py_DECREF(rval);
-            uni = PyUnicode_DecodeUTF8(input_str, input_chars, "strict");
+            uni = PyUnicode_DecodeUTF8(input_str, input_chars, 0, "strict");
             if (uni == NULL) {
                 return NULL;
             }

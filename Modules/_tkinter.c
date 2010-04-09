@@ -780,7 +780,7 @@ PyTclObject_string(PyTclObject *self, void *ignored)
 			/* It is an ASCII string. */
 			self->string = PyString_FromStringAndSize(s, len);
 		else {
-			self->string = PyUnicode_DecodeUTF8(s, len, "strict");
+			self->string = PyUnicode_DecodeUTF8(s, len, 0, "strict");
 			if (!self->string) {
 				PyErr_Clear();
 				self->string = PyString_FromStringAndSize(s, len);
@@ -810,7 +810,7 @@ PyTclObject_unicode(PyTclObject *self, void *ignored)
 	}
 	/* XXX Could chache result if it is non-ASCII. */
 	s = Tcl_GetStringFromObj(self->value, &len);
-	return PyUnicode_DecodeUTF8(s, len, "strict");
+	return PyUnicode_DecodeUTF8(s, len, 0, "strict");
 }
 #endif
 
@@ -1002,7 +1002,7 @@ FromObj(PyObject* tkapp, Tcl_Obj *value)
 			result = PyString_FromStringAndSize(s, len);
 		else {
 			/* Convert UTF-8 to Unicode string */
-			result = PyUnicode_DecodeUTF8(s, len, "strict");
+			result = PyUnicode_DecodeUTF8(s, len, 0, "strict");
 			if (result == NULL) {
 				PyErr_Clear();
 				result = PyString_FromStringAndSize(s, len);
@@ -1208,7 +1208,7 @@ Tkapp_CallResult(TkappObject *self)
 		else {
 			/* Convert UTF-8 to Unicode string */
 			p = strchr(p, '\0');
-			res = PyUnicode_DecodeUTF8(s, (int)(p-s), "strict");
+			res = PyUnicode_DecodeUTF8(s, (int)(p-s), 0, "strict");
 			if (res == NULL) {
 				PyErr_Clear();
 				res = PyString_FromStringAndSize(s, (int)(p-s));

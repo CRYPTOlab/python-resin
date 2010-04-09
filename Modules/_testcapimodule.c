@@ -488,7 +488,7 @@ test_u_code(PyObject *self)
         if (tuple == NULL)
         	return NULL;
 
-        obj = PyUnicode_Decode("test", strlen("test"),
+        obj = PyUnicode_Decode("test", strlen("test"), 0,
 			       "ascii", NULL);
         if (obj == NULL)
         	return NULL;

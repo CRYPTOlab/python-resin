@@ -175,7 +175,7 @@ conv_string_to_unicode(const XML_Char *str)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    return PyUnicode_DecodeUTF8(str, strlen(str), "strict");
+    return PyUnicode_DecodeUTF8(str, strlen(str), 0, "strict");
 }
 
 static PyObject *
@@ -188,7 +188,7 @@ conv_string_len_to_unicode(const XML_Char *str, int len)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    return PyUnicode_DecodeUTF8((const char *)str, len, "strict");
+    return PyUnicode_DecodeUTF8((const char *)str, len, 0, "strict");
 }
 #endif
 
@@ -1297,7 +1297,7 @@ PyUnknownEncodingHandler(void *encodingHandlerData,
 
     /* Yes, supports only 8bit encodings */
     _u_string = (PyUnicodeObject *)
-        PyUnicode_Decode(template_buffer, 256, name, "replace");
+        PyUnicode_Decode(template_buffer, 256, 0, name, "replace");
 
     if (_u_string == NULL)
 	return result;

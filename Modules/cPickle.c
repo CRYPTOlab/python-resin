@@ -3581,7 +3581,7 @@ load_binunicode(Unpicklerobject *self)
 	if (self->read_func(self, &s, l) < 0)
 		return -1;
 
-	if (!( unicode = PyUnicode_DecodeUTF8(s, l, NULL)))
+	if (!( unicode = PyUnicode_DecodeUTF8(s, l, 0, NULL)))
 		return -1;
 
 	PDATA_PUSH(self->stack, unicode, -1);

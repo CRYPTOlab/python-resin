@@ -533,7 +533,7 @@ _create_tuple_for_attribute (ASN1_OBJECT *name, ASN1_STRING *value) {
 		goto fail;
 	}
 	value_obj = PyUnicode_DecodeUTF8((char *) valuebuf,
-						 buflen, "strict");
+						 buflen, 0, "strict");
 	OPENSSL_free(valuebuf);
 	if (value_obj == NULL) {
 		Py_DECREF(name_obj);
